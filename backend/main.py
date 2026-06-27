@@ -10,6 +10,15 @@ import json
 import secrets
 from datetime import datetime
 
+# Load variables from a local .env file if one exists (for local development).
+# In production (e.g. Vercel), env vars are injected directly and there is no
+# .env file, so this is a harmless no-op there.
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 app = FastAPI(title="MidiDater CRM API")
 
 app.add_middleware(
@@ -30,12 +39,38 @@ GOOGLE_CREDS_JSON = os.getenv("GOOGLE_CREDS_JSON", "")
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 def get_sheet():
+    if not GOOGLE_SHEET_ID:
+        raise HTTPException(
+            status_code=500,
+            detail="GOOGLE_SHEET_ID is not set. Add it to your .env file (local) or Vercel project env vars (production)."
+        )
+    if not GOOGLE_CREDS_JSON:
+        raise HTTPException(
+            status_code=500,
+            detail="GOOGLE_CREDS_JSON is not set. Paste the full service account JSON (one line) into your .env file or Vercel env vars."
+        )
     try:
         creds_dict = json.loads(GOOGLE_CREDS_JSON)
+    except json.JSONDecodeError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"GOOGLE_CREDS_JSON is not valid JSON ({e}). Make sure you pasted the entire service account .json file contents, not just the private key."
+        )
+    try:
         creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
         client = gspread.authorize(creds)
         sheet = client.open_by_key(GOOGLE_SHEET_ID)
         return sheet
+    except gspread.exceptions.SpreadsheetNotFound:
+        raise HTTPException(
+            status_code=500,
+            detail="Spreadsheet not found. Double-check GOOGLE_SHEET_ID matches the ID in your sheet's URL."
+        )
+    except gspread.exceptions.APIError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Google Sheets API error: {e}. Make sure the sheet is shared (Editor access) with the service account's client_email, and that the Google Sheets API is enabled on the project."
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Sheet connection failed: {str(e)}")
 
