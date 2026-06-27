@@ -6,3 +6,5 @@ __pycache__/
 .env
 service-account.json
 *.log
+.vercel
+.env*
