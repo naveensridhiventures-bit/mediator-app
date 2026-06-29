@@ -1,440 +1,294 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useAdminAuth } from '../hooks/useAdminAuth.jsx'
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-const TABS = ['Overview', 'Seller Listings', 'Buyer Inquiries', 'Image Editor']
+const MOCK_SELLERS = [
+  { id: 1, ownerName: 'Rajesh Kumar', phone: '9876543210', whatsapp: '9876543210', email: 'rajesh@gmail.com', propertyType: 'Apartment', locality: 'Anna Nagar', exactAddress: '12A, 3rd Main Rd, Anna Nagar West', price: '₹85 Lakhs', area: '1400', beds: '3 BHK', listingType: 'sale', status: 'active', photos: 3, createdAt: '2025-06-20', availability: 'Evening' },
+  { id: 2, ownerName: 'Priya Suresh', phone: '9988776655', whatsapp: '9988776655', email: 'priya.s@yahoo.com', propertyType: 'House', locality: 'Velachery', exactAddress: '45, Lake View Street, Velachery', price: '₹1.2 Cr', area: '2100', beds: '4 BHK', listingType: 'sale', status: 'pending', photos: 5, createdAt: '2025-06-22', availability: 'Morning' },
+  { id: 3, ownerName: 'Mohan Venkat', phone: '9123456789', whatsapp: null, email: null, propertyType: 'Shop', locality: 'T. Nagar', exactAddress: '78, Pondy Bazaar, T. Nagar', price: '₹45,000/mo', area: '600', beds: null, listingType: 'rent', status: 'active', photos: 2, createdAt: '2025-06-25', availability: 'Anytime' },
+];
 
-// Sample data — in production these come from the backend API
-const SELLERS = [
-  { id: 1, name: 'Ravi Kumar', phone: '9876543210', whatsapp: '9876543210', email: 'ravi@gmail.com', type: 'apartment', bhk: '3 BHK', price: '₹65 Lakh', area: 'Anna Nagar', exact_address: '42, 3rd Cross St, Anna Nagar West', sqft: '1450', description: 'Well-maintained flat, 3rd floor, East facing, near bus stop.', amenities: ['Parking', 'Lift', 'Security'], listing: 'sell', status: 'active', photos: ['https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400'], submitted: '2024-01-15', views: 142 },
-  { id: 2, name: 'Priya Subramanian', phone: '9845612378', whatsapp: '9845612378', email: 'priya@gmail.com', type: 'house', bhk: '4 BHK', price: '₹1.2 Cr', area: 'Adyar', exact_address: '7, Lattice Bridge Rd, Adyar', sqft: '2200', description: 'Spacious independent house with garden and car park.', amenities: ['Parking', 'Garden', 'Generator'], listing: 'sell', status: 'active', photos: ['https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=400'], submitted: '2024-01-18', views: 89 },
-  { id: 3, name: 'Karthik Raj', phone: '9988776655', whatsapp: '9988776655', email: '', type: 'plot', bhk: 'Open Plot', price: '₹45 Lakh', area: 'OMR', exact_address: 'Survey No. 124, Sholinganallur Village, OMR', sqft: '1800', description: 'DTCP approved plot, near IT corridor, all utilities available.', amenities: ['Near Metro', 'School Nearby'], listing: 'sell', status: 'pending', photos: [], submitted: '2024-01-20', views: 0 },
-]
+const MOCK_BUYERS = [
+  { id: 1, name: 'Anand Krishnan', phone: '9871234567', whatsapp: '9871234567', email: 'anand@gmail.com', propertyType: 'Apartment', purposeType: 'buy', maxBudget: '90', bedrooms: '3 BHK', areas: ['Anna Nagar', 'Mogappair'], status: 'new', createdAt: '2025-06-28' },
+  { id: 2, name: 'Meena Ravi', phone: '9900112233', whatsapp: '9900112233', email: 'meena.ravi@gmail.com', propertyType: 'House', purposeType: 'buy', maxBudget: '150', bedrooms: '4 BHK', areas: ['Adyar', 'Besant Nagar'], status: 'contacted', createdAt: '2025-06-27' },
+  { id: 3, name: 'Suresh Babu', phone: '9765432100', whatsapp: null, email: null, propertyType: 'Shop', purposeType: 'rent', maxBudget: '50', bedrooms: null, areas: ['T. Nagar', 'Nungambakkam'], status: 'matched', createdAt: '2025-06-25' },
+];
 
-const BUYERS = [
-  { id: 1, name: 'Anand Krishnan', phone: '9123456789', email: 'anand@gmail.com', type: 'apartment', bhk: '2 BHK', budget: '₹40–60 Lakh', location: 'Anna Nagar or Kilpauk', requirements: 'Ground or 1st floor preferred, parking must, near school', submitted: '2024-01-19', status: 'New' },
-  { id: 2, name: 'Meena Devi', phone: '9234567890', email: '', type: 'house', bhk: '3 BHK', budget: '₹80L–1 Cr', location: 'Adyar, Mylapore', requirements: 'Quiet street, not main road, min 1500 sqft', submitted: '2024-01-20', status: 'contacted' },
-  { id: 3, name: 'Sundar Rajan', phone: '9345678901', email: 'sundar@gmail.com', type: 'plot', bhk: 'NA', budget: '₹25–50 Lakh', location: 'OMR, ECR', requirements: 'Min 1200 sqft, DTCP approved, near highway', submitted: '2024-01-21', status: 'New' },
-]
+const STATUS_COLORS = { active: 'badge-green', pending: 'badge-gold', sold: 'badge-red', new: 'badge-blue', contacted: 'badge-gold', matched: 'badge-green', closed: 'badge-red' };
 
-const STATUS_COLORS = {
-  active: { bg: 'rgba(16,185,129,0.12)', color: '#10b981' },
-  pending: { bg: 'rgba(245,158,11,0.12)', color: '#f59e0b' },
-  sold: { bg: 'rgba(99,102,241,0.12)', color: '#818cf8' },
-  New: { bg: 'rgba(129,140,248,0.12)', color: '#818cf8' },
-  contacted: { bg: 'rgba(245,158,11,0.12)', color: '#f59e0b' },
-  interested: { bg: 'rgba(16,185,129,0.12)', color: '#10b981' },
-  closed: { bg: 'rgba(16,185,129,0.15)', color: '#10b981' },
-}
-
-const TYPE_ICONS = { apartment: '🏢', house: '🏠', plot: '🌿', commercial: '🏪', warehouse: '🏭', hotel: '🏨', gym: '🏋️', salon: '💇' }
-
-function StatusBadge({ status }) {
-  const c = STATUS_COLORS[status] || { bg: 'var(--surface2)', color: 'var(--text3)' }
-  return <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: c.bg, color: c.color }}>{status?.toUpperCase()}</span>
-}
+const ADMIN_PIN = '1234';
 
 export default function AdminDashboard() {
-  const navigate = useNavigate()
-  const { logout } = useAdminAuth()
-  const [tab, setTab] = useState(0)
-  const [sellers, setSellers] = useState(SELLERS)
-  const [buyers, setBuyers] = useState(BUYERS)
-  const [editSeller, setEditSeller] = useState(null)
-  const [editImage, setEditImage] = useState(null) // { sellerId, photoIdx }
-  const [imagePrompt, setImagePrompt] = useState('')
-  const [aiLoading, setAiLoading] = useState(false)
-  const [aiResult, setAiResult] = useState(null)
-  const [buyerStatus, setBuyerStatus] = useState({})
-  const [search, setSearch] = useState('')
+  const nav = useNavigate();
+  const [pin, setPin] = useState('');
+  const [auth, setAuth] = useState(false);
+  const [pinError, setPinError] = useState('');
+  const [tab, setTab] = useState('overview');
+  const [sellers, setSellers] = useState(MOCK_SELLERS);
+  const [buyers, setBuyers] = useState(MOCK_BUYERS);
+  const [expandSeller, setExpandSeller] = useState(null);
+  const [expandBuyer, setExpandBuyer] = useState(null);
 
-  const updateSeller = (id, changes) => {
-    setSellers(prev => prev.map(s => s.id === id ? { ...s, ...changes } : s))
-    if (editSeller?.id === id) setEditSeller(prev => ({ ...prev, ...changes }))
+  const handlePin = () => {
+    if (pin === ADMIN_PIN) { setAuth(true); setPinError(''); }
+    else { setPinError('Incorrect PIN. Try again.'); setPin(''); }
+  };
+
+  const updateSellerStatus = (id, status) => setSellers(s => s.map(x => x.id === id ? { ...x, status } : x));
+  const updateBuyerStatus = (id, status) => setBuyers(b => b.map(x => x.id === id ? { ...x, status } : x));
+
+  if (!auth) {
+    return (
+      <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: '48px 40px', maxWidth: 360, width: '100%', textAlign: 'center' }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🔐</div>
+          <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Admin Access</h2>
+          <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 28 }}>Enter your PIN to access the dashboard</p>
+          <input type="password" placeholder="Enter PIN" maxLength={4} value={pin} onChange={e => setPin(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handlePin()}
+            style={{ textAlign: 'center', fontSize: 24, letterSpacing: 12, marginBottom: 16, padding: '14px' }} />
+          {pinError && <div style={{ color: '#f85149', fontSize: 13, marginBottom: 12 }}>{pinError}</div>}
+          <button className="btn-primary" onClick={handlePin} style={{ width: '100%', padding: '14px' }}>Unlock Dashboard</button>
+          <button onClick={() => nav('/')} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 13, marginTop: 16, cursor: 'pointer' }}>← Back to Home</button>
+        </div>
+      </div>
+    );
   }
 
-  const updateBuyerStatus = (id, status) => {
-    setBuyers(prev => prev.map(b => b.id === id ? { ...b, status } : b))
-  }
-
-  const handleAiEnhance = async () => {
-    setAiLoading(true)
-    setAiResult(null)
-    setTimeout(() => {
-      setAiResult('✨ Image enhanced! Brightness +15%, Contrast adjusted, Background cleaned. Ready to publish.')
-      setAiLoading(false)
-    }, 2000)
-  }
-
-  const filteredSellers = sellers.filter(s =>
-    !search || `${s.name} ${s.area} ${s.type} ${s.phone}`.toLowerCase().includes(search.toLowerCase())
-  )
-  const filteredBuyers = buyers.filter(b =>
-    !search || `${b.name} ${b.area} ${b.type} ${b.phone}`.toLowerCase().includes(search.toLowerCase())
-  )
-
-  const stats = [
-    { label: 'Total Listings', val: sellers.length, icon: '🏠', color: '#818cf8' },
-    { label: 'Active Listings', val: sellers.filter(s => s.status === 'active').length, icon: '✅', color: '#10b981' },
-    { label: 'Buyer Inquiries', val: buyers.length, icon: '🔍', color: '#f59e0b' },
-    { label: 'Pending Review', val: sellers.filter(s => s.status === 'pending').length, icon: '⏳', color: '#f97316' },
-  ]
+  const TABS = [
+    { id: 'overview', label: '📊 Overview' },
+    { id: 'sellers', label: `🏷️ Listings (${sellers.length})` },
+    { id: 'buyers', label: `🔍 Buyers (${buyers.length})` },
+    { id: 'images', label: '📸 Image Manager' },
+  ];
 
   return (
-    <div style={s.page}>
-      {/* Sidebar */}
-      <div style={s.sidebar}>
-        <div style={s.sideTop}>
-          <div style={s.sideLogo}>
-            <span>🏡</span>
-            <span style={s.sideLogoText}>MidiDater</span>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+      {/* Header */}
+      <div style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--border)', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button onClick={() => nav('/')} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 20, cursor: 'pointer' }}>←</button>
+          <div>
+            <div style={{ fontFamily: 'Playfair Display, serif', fontWeight: 700, fontSize: 18, color: 'var(--accent2)' }}>MidiDater Admin</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Property Management Dashboard</div>
           </div>
-          <div style={s.sideTag}>Admin Panel</div>
         </div>
-
-        <nav style={s.nav}>
-          {TABS.map((t, i) => (
-            <button key={t} style={{ ...s.navBtn, background: tab === i ? 'var(--accent)' : 'transparent', color: tab === i ? '#fff' : 'var(--text2)' }} onClick={() => setTab(i)}>
-              <span>{['📊', '🏠', '🔍', '🖼️'][i]}</span>
-              <span>{t}</span>
-            </button>
-          ))}
-        </nav>
-
-        <div style={s.sideBottom}>
-          <button style={s.viewSite} onClick={() => navigate('/listings')}>View Site →</button>
-          <button style={s.logoutBtn} onClick={logout}>Logout</button>
-        </div>
+        <button onClick={() => setAuth(false)} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>🔒 Lock</button>
       </div>
 
-      {/* Main */}
-      <div style={s.main}>
-        {/* Search */}
-        <div style={s.topBar}>
-          <input style={s.search} placeholder="🔍 Search by name, phone, area…"
-            value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
+      {/* Tabs */}
+      <div style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--border)', padding: '0 24px', display: 'flex', gap: 4 }}>
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            style={{ padding: '14px 20px', background: 'none', border: 'none', borderBottom: `2px solid ${tab === t.id ? 'var(--accent2)' : 'transparent'}`, color: tab === t.id ? 'var(--accent2)' : 'var(--muted)', fontWeight: tab === t.id ? 600 : 400, cursor: 'pointer', fontSize: 14, transition: 'color 0.2s' }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-        {/* OVERVIEW */}
-        {tab === 0 && (
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 24px' }}>
+
+        {/* OVERVIEW TAB */}
+        {tab === 'overview' && (
           <div>
-            <h2 style={s.pageTitle}>Overview</h2>
-            <div style={s.statsGrid}>
-              {stats.map(st => (
-                <div key={st.label} style={s.statCard}>
-                  <div style={{ fontSize: 28 }}>{st.icon}</div>
-                  <div style={{ ...s.statVal, color: st.color }}>{st.val}</div>
-                  <div style={s.statLabel}>{st.label}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 32 }}>
+              {[
+                ['🏷️', 'Total Listings', sellers.length, 'badge-green'],
+                ['✅', 'Active', sellers.filter(s => s.status === 'active').length, 'badge-green'],
+                ['⏳', 'Pending', sellers.filter(s => s.status === 'pending').length, 'badge-gold'],
+                ['🔍', 'Total Buyers', buyers.length, 'badge-blue'],
+                ['🤝', 'Matched', buyers.filter(b => b.status === 'matched').length, 'badge-green'],
+              ].map(([icon, label, val, badge]) => (
+                <div key={label} className="card" style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, marginBottom: 6 }}>{icon}</div>
+                  <div style={{ fontSize: 30, fontWeight: 800, color: 'var(--accent2)' }}>{val}</div>
+                  <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>{label}</div>
                 </div>
               ))}
             </div>
 
-            <h3 style={s.sectionTitle}>Recent Seller Submissions</h3>
-            <div style={s.table}>
-              <div style={s.tableHead}>
-                <span>Seller</span><span>Property</span><span>Area</span><span>Price</span><span>Status</span><span>Action</span>
-              </div>
-              {sellers.slice(0, 5).map(s2 => (
-                <div key={s2.id} style={s.tableRow}>
-                  <span style={{ color: 'var(--text)', fontWeight: 600 }}>{s2.name}</span>
-                  <span style={{ color: 'var(--text2)' }}>{TYPE_ICONS[s2.type]} {s2.bhk}</span>
-                  <span style={{ color: 'var(--text2)' }}>{s2.area}</span>
-                  <span style={{ color: 'var(--gold)', fontWeight: 700 }}>{s2.price}</span>
-                  <StatusBadge status={s2.status} />
-                  <button style={s.rowBtn} onClick={() => { setEditSeller(s2); setTab(1) }}>Edit</button>
-                </div>
-              ))}
-            </div>
-
-            <h3 style={{ ...s.sectionTitle, marginTop: 32 }}>Recent Buyer Inquiries</h3>
-            <div style={s.table}>
-              <div style={s.tableHead}>
-                <span>Buyer</span><span>Looking For</span><span>Budget</span><span>Location</span><span>Status</span><span>Contact</span>
-              </div>
-              {buyers.map(b => (
-                <div key={b.id} style={s.tableRow}>
-                  <span style={{ color: 'var(--text)', fontWeight: 600 }}>{b.name}</span>
-                  <span style={{ color: 'var(--text2)' }}>{TYPE_ICONS[b.type]} {b.bhk}</span>
-                  <span style={{ color: 'var(--gold)', fontWeight: 700 }}>{b.budget}</span>
-                  <span style={{ color: 'var(--text2)' }}>{b.location}</span>
-                  <StatusBadge status={b.status} />
-                  <a href={`https://wa.me/91${b.phone}`} target="_blank" rel="noreferrer" style={s.waLink}>WhatsApp</a>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* SELLER LISTINGS */}
-        {tab === 1 && (
-          <div>
-            <h2 style={s.pageTitle}>Seller Listings <span style={s.countBadge}>{filteredSellers.length}</span></h2>
-            <div style={s.listingsGrid}>
-              {filteredSellers.map(sl => (
-                <div key={sl.id} style={s.listingCard}>
-                  {/* Photo */}
-                  <div style={{ ...s.listingImg, backgroundImage: sl.photos?.[0] ? `url(${sl.photos[0]})` : 'none', background: sl.photos?.[0] ? undefined : 'var(--surface2)' }}>
-                    {!sl.photos?.[0] && <span style={s.noPhoto}>📷 No Photos</span>}
-                    <div style={s.listingImgActions}>
-                      <button style={s.imgBtn} onClick={() => { setEditImage({ sellerId: sl.id, photoIdx: 0 }); setTab(3) }}>✏️ Edit Photo</button>
-                    </div>
-                    <StatusBadge status={sl.status} />
-                  </div>
-                  {/* Info */}
-                  <div style={s.listingInfo}>
-                    <div style={s.listingTop}>
-                      <div>
-                        <div style={s.listingPrice}>{sl.price}</div>
-                        <div style={s.listingMeta}>{TYPE_ICONS[sl.type]} {sl.bhk} · {sl.sqft} sqft</div>
-                      </div>
-                      <div style={s.viewsTag}>👁 {sl.views}</div>
-                    </div>
-
-                    {/* Full private info — only admin sees */}
-                    <div style={s.privateBox}>
-                      <div style={s.privateLabel}>🔒 Private (not shown to public)</div>
-                      <div style={s.privateRow}><span style={s.pLabel}>Owner:</span><span style={s.pVal}>{sl.name}</span></div>
-                      <div style={s.privateRow}><span style={s.pLabel}>Phone:</span><a href={`tel:+91${sl.phone}`} style={s.pLink}>{sl.phone}</a></div>
-                      <div style={s.privateRow}><span style={s.pLabel}>WhatsApp:</span><a href={`https://wa.me/91${sl.whatsapp}`} target="_blank" rel="noreferrer" style={{ ...s.pLink, color: 'var(--wa)' }}>{sl.whatsapp}</a></div>
-                      {sl.email && <div style={s.privateRow}><span style={s.pLabel}>Email:</span><span style={s.pVal}>{sl.email}</span></div>}
-                      <div style={s.privateRow}><span style={s.pLabel}>Address:</span><span style={s.pVal}>{sl.exact_address || 'Not provided'}</span></div>
-                    </div>
-
-                    {/* Public info */}
-                    <div style={s.publicBox}>
-                      <div style={s.publicLabel}>🌐 Public view</div>
-                      <div style={s.pVal}>📍 {sl.area}, Chennai · {sl.bhk} · {sl.price}</div>
-                    </div>
-
-                    <div style={s.desc}>{sl.description}</div>
-                    <div style={s.amenityRow}>
-                      {sl.amenities.map(a => <span key={a} style={s.amenTag}>{a}</span>)}
-                    </div>
-
-                    {/* Actions */}
-                    <div style={s.actionsRow}>
-                      <select style={s.statusSelect} value={sl.status} onChange={e => updateSeller(sl.id, { status: e.target.value })}>
-                        <option value="pending">⏳ Pending</option>
-                        <option value="active">✅ Active</option>
-                        <option value="sold">🏷️ Sold</option>
-                        <option value="paused">⏸ Paused</option>
-                      </select>
-                      <button style={s.actionBtn} onClick={() => { setEditImage({ sellerId: sl.id, photoIdx: 0 }); setTab(3) }}>🖼 Photos</button>
-                      <a href={`https://wa.me/91${sl.whatsapp || sl.phone}`} target="_blank" rel="noreferrer" style={s.waActionBtn}>💬 WhatsApp</a>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* BUYER INQUIRIES */}
-        {tab === 2 && (
-          <div>
-            <h2 style={s.pageTitle}>Buyer Inquiries <span style={s.countBadge}>{filteredBuyers.length}</span></h2>
-            <div style={s.buyerGrid}>
-              {filteredBuyers.map(b => (
-                <div key={b.id} style={s.buyerCard}>
-                  <div style={s.buyerHead}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+              <div>
+                <h3 style={{ fontWeight: 700, marginBottom: 12 }}>Recent Sellers</h3>
+                {sellers.map(s => (
+                  <div key={s.id} className="card" style={{ marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <div style={s.buyerName}>{b.name}</div>
-                      <div style={s.buyerMeta}>{TYPE_ICONS[b.type]} Looking for {b.bhk} {b.type}</div>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{s.ownerName}</div>
+                      <div style={{ color: 'var(--muted)', fontSize: 12 }}>{s.propertyType} · {s.locality}</div>
                     </div>
-                    <StatusBadge status={b.status} />
+                    <span className={`badge ${STATUS_COLORS[s.status]}`}>{s.status}</span>
                   </div>
-
-                  <div style={s.buyerInfo}>
-                    <div style={s.infoRow}><span style={s.infoLabel}>Budget</span><span style={{ ...s.infoVal, color: 'var(--gold)', fontWeight: 700 }}>{b.budget}</span></div>
-                    <div style={s.infoRow}><span style={s.infoLabel}>Preferred Area</span><span style={s.infoVal}>{b.location}</span></div>
-                    <div style={s.infoRow}><span style={s.infoLabel}>Submitted</span><span style={s.infoVal}>{b.submitted}</span></div>
+                ))}
+              </div>
+              <div>
+                <h3 style={{ fontWeight: 700, marginBottom: 12 }}>Recent Buyers</h3>
+                {buyers.map(b => (
+                  <div key={b.id} className="card" style={{ marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{b.name}</div>
+                      <div style={{ color: 'var(--muted)', fontSize: 12 }}>{b.propertyType} · {b.areas[0]}</div>
+                    </div>
+                    <span className={`badge ${STATUS_COLORS[b.status]}`}>{b.status}</span>
                   </div>
-
-                  <div style={s.reqBox}>
-                    <div style={s.reqLabel}>Requirements</div>
-                    <div style={s.reqText}>{b.requirements}</div>
-                  </div>
-
-                  {/* Full private contact — admin only */}
-                  <div style={s.privateBox}>
-                    <div style={s.privateLabel}>🔒 Contact (private)</div>
-                    <div style={s.privateRow}><span style={s.pLabel}>Phone:</span><a href={`tel:+91${b.phone}`} style={s.pLink}>{b.phone}</a></div>
-                    {b.email && <div style={s.privateRow}><span style={s.pLabel}>Email:</span><span style={s.pVal}>{b.email}</span></div>}
-                  </div>
-
-                  <div style={s.buyerActions}>
-                    <select style={s.statusSelect} value={b.status} onChange={e => updateBuyerStatus(b.id, e.target.value)}>
-                      <option value="New">🆕 New</option>
-                      <option value="contacted">📞 Contacted</option>
-                      <option value="interested">🔥 Interested</option>
-                      <option value="negotiation">🤝 Negotiation</option>
-                      <option value="closed">✅ Closed</option>
-                      <option value="lost">❌ Lost</option>
-                    </select>
-                    <a href={`https://wa.me/91${b.phone}?text=${encodeURIComponent(`Hi ${b.name}, this is MidiDater. We found a matching property for you in ${b.location}. Are you still looking?`)}`} target="_blank" rel="noreferrer" style={s.waActionBtn}>💬 WhatsApp</a>
-                    <a href={`tel:+91${b.phone}`} style={s.callBtn}>📞 Call</a>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         )}
 
-        {/* IMAGE EDITOR */}
-        {tab === 3 && (
+        {/* SELLERS TAB */}
+        {tab === 'sellers' && (
           <div>
-            <h2 style={s.pageTitle}>Image Editor</h2>
-            <p style={{ color: 'var(--text2)', marginBottom: 24, fontSize: 14 }}>
-              Select a property and enhance photos. Our admin team can also use AI prompts to describe enhancements before manually editing.
-            </p>
-            <div style={s.imgEditorGrid}>
-              {sellers.map(sl => (
-                <div key={sl.id} style={s.imgEditorCard}>
-                  <div style={s.imgEditorHeader}>
-                    <span style={{ color: 'var(--text)', fontWeight: 700 }}>{sl.name}</span>
-                    <span style={{ color: 'var(--text2)', fontSize: 12 }}>{sl.area} · {sl.bhk}</span>
+            <h2 style={{ fontWeight: 700, fontSize: 20, marginBottom: 20 }}>Seller Listings</h2>
+            {sellers.map(s => (
+              <div key={s.id} className="card" style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', cursor: 'pointer' }} onClick={() => setExpandSeller(expandSeller === s.id ? null : s.id)}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                      <span style={{ fontWeight: 700, fontSize: 16 }}>{s.propertyType}</span>
+                      <span className="badge badge-blue">{s.listingType === 'sale' ? 'For Sale' : 'For Rent'}</span>
+                      <span className={`badge ${STATUS_COLORS[s.status]}`}>{s.status}</span>
+                    </div>
+                    <div style={{ color: 'var(--muted)', fontSize: 13 }}>📍 {s.locality} · {s.price} · {s.area} sqft{s.beds ? ` · ${s.beds}` : ''}</div>
                   </div>
-                  <div style={s.photoStrip}>
-                    {sl.photos && sl.photos.length > 0 ? sl.photos.map((ph, idx) => (
-                      <div key={idx} style={s.photoItem}>
-                        <img src={ph} alt="" style={s.photoImg} />
-                        <div style={s.photoActions}>
-                          <button style={s.enhanceBtn} onClick={() => {
-                            setEditImage({ sellerId: sl.id, photoIdx: idx, url: ph })
-                            setAiResult(null)
-                            setImagePrompt('')
-                          }}>✨ Enhance</button>
-                        </div>
-                      </div>
-                    )) : (
-                      <div style={s.noPhotoBox}>
-                        <span style={{ color: 'var(--text3)', fontSize: 13 }}>No photos uploaded yet</span>
-                      </div>
-                    )}
-                    {/* Upload more */}
-                    <label style={s.addPhotoBtn}>
-                      <span>+</span>
-                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={ev => {
-                        const file = ev.target.files[0]
-                        if (!file) return
-                        const reader = new FileReader()
-                        reader.onload = (e) => {
-                          updateSeller(sl.id, { photos: [...(sl.photos || []), e.target.result] })
-                        }
-                        reader.readAsDataURL(file)
-                      }} />
-                    </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <select value={s.status} onChange={e => { e.stopPropagation(); updateSellerStatus(s.id, e.target.value); }}
+                      onClick={e => e.stopPropagation()}
+                      style={{ width: 'auto', padding: '6px 10px', fontSize: 12 }}>
+                      {['active', 'pending', 'sold'].map(st => <option key={st}>{st}</option>)}
+                    </select>
+                    <span style={{ color: 'var(--muted)', fontSize: 18 }}>{expandSeller === s.id ? '▲' : '▼'}</span>
                   </div>
                 </div>
-              ))}
-            </div>
 
-            {/* Enhancement panel */}
-            {editImage && (
-              <div style={s.enhancePanel}>
-                <h3 style={s.enhancePanelTitle}>✨ Enhance Photo</h3>
-                {editImage.url && <img src={editImage.url} alt="" style={s.enhancePreview} />}
-                <label style={s.enhanceLabel}>Describe the enhancement (note for your editor or AI)</label>
-                <textarea style={s.enhanceInput} placeholder="e.g. Brighten the image, remove the background clutter, make it look more professional…"
-                  value={imagePrompt} onChange={e => setImagePrompt(e.target.value)} rows={3} />
-                <button style={{ ...s.enhanceSubmit, opacity: aiLoading ? 0.7 : 1 }}
-                  onClick={handleAiEnhance} disabled={aiLoading}>
-                  {aiLoading ? '⏳ Processing…' : '🚀 Apply Enhancement'}
-                </button>
-                {aiResult && (
-                  <div style={s.aiResult}>{aiResult}</div>
+                {expandSeller === s.id && (
+                  <div style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+                    {/* Private Info */}
+                    <div style={{ background: 'rgba(218,54,51,0.08)', border: '1px solid rgba(218,54,51,0.2)', borderRadius: 10, padding: 14, marginBottom: 14 }}>
+                      <div style={{ fontSize: 13, color: '#f85149', fontWeight: 700, marginBottom: 8 }}>🔒 PRIVATE — Owner Contact (Never Shown Publicly)</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 13 }}>
+                        <div><span style={{ color: 'var(--muted)' }}>Owner:</span> <strong>{s.ownerName}</strong></div>
+                        <div><span style={{ color: 'var(--muted)' }}>Available:</span> <strong>{s.availability}</strong></div>
+                        <div><span style={{ color: 'var(--muted)' }}>Phone:</span> <a href={`tel:${s.phone}`} style={{ color: 'var(--accent2)', fontWeight: 600 }}>📞 {s.phone}</a></div>
+                        <div><span style={{ color: 'var(--muted)' }}>Email:</span> {s.email || '—'}</div>
+                        <div style={{ gridColumn: '1/-1' }}><span style={{ color: 'var(--muted)' }}>WhatsApp:</span> {s.whatsapp ? <a href={`https://wa.me/91${s.whatsapp}`} target="_blank" rel="noreferrer" style={{ color: '#25D366', fontWeight: 600 }}>💬 {s.whatsapp}</a> : '—'}</div>
+                        <div style={{ gridColumn: '1/-1' }}><span style={{ color: 'var(--muted)' }}>Exact Address:</span> <strong>{s.exactAddress}</strong></div>
+                      </div>
+                    </div>
+
+                    {/* Public Info */}
+                    <div style={{ background: 'rgba(35,134,54,0.08)', border: '1px solid rgba(35,134,54,0.2)', borderRadius: 10, padding: 14 }}>
+                      <div style={{ fontSize: 13, color: '#3fb950', fontWeight: 700, marginBottom: 8 }}>✅ PUBLIC — What Buyers See</div>
+                      <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+                        {s.propertyType} in <strong style={{ color: 'var(--text)' }}>{s.locality}</strong> · {s.price} · {s.area} sqft{s.beds ? ` · ${s.beds}` : ''} · {s.photos} photos · Contact via MidiDater WhatsApp only
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+                      <a href={`https://wa.me/91${s.whatsapp || s.phone}`} target="_blank" rel="noreferrer"
+                        style={{ flex: 1, display: 'block', background: '#25D366', color: 'white', textAlign: 'center', padding: '10px', borderRadius: 8, fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
+                        WhatsApp Owner
+                      </a>
+                      <a href={`tel:${s.phone}`}
+                        style={{ flex: 1, display: 'block', background: 'var(--bg3)', color: 'var(--text)', textAlign: 'center', padding: '10px', borderRadius: 8, fontWeight: 600, fontSize: 13, textDecoration: 'none', border: '1px solid var(--border)' }}>
+                        📞 Call Owner
+                      </a>
+                    </div>
+                  </div>
                 )}
               </div>
-            )}
+            ))}
           </div>
         )}
+
+        {/* BUYERS TAB */}
+        {tab === 'buyers' && (
+          <div>
+            <h2 style={{ fontWeight: 700, fontSize: 20, marginBottom: 20 }}>Buyer Inquiries</h2>
+            {buyers.map(b => (
+              <div key={b.id} className="card" style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', cursor: 'pointer' }} onClick={() => setExpandBuyer(expandBuyer === b.id ? null : b.id)}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                      <span style={{ fontWeight: 700, fontSize: 16 }}>{b.name}</span>
+                      <span className={`badge ${STATUS_COLORS[b.status]}`}>{b.status}</span>
+                    </div>
+                    <div style={{ color: 'var(--muted)', fontSize: 13 }}>
+                      Looking for: {b.propertyType} · {b.purposeType === 'buy' ? 'Purchase' : 'Rent'} · Budget: ₹{b.maxBudget}L · {b.areas.join(', ')}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <select value={b.status} onChange={e => { e.stopPropagation(); updateBuyerStatus(b.id, e.target.value); }}
+                      onClick={e => e.stopPropagation()}
+                      style={{ width: 'auto', padding: '6px 10px', fontSize: 12 }}>
+                      {['new', 'contacted', 'matched', 'closed'].map(st => <option key={st}>{st}</option>)}
+                    </select>
+                    <span style={{ color: 'var(--muted)', fontSize: 18 }}>{expandBuyer === b.id ? '▲' : '▼'}</span>
+                  </div>
+                </div>
+
+                {expandBuyer === b.id && (
+                  <div style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+                    <div style={{ background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.2)', borderRadius: 10, padding: 14, marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, color: 'var(--accent2)', fontWeight: 700, marginBottom: 8 }}>📋 Buyer Details</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 13 }}>
+                        <div><span style={{ color: 'var(--muted)' }}>Phone:</span> <a href={`tel:${b.phone}`} style={{ color: 'var(--accent2)', fontWeight: 600 }}>📞 {b.phone}</a></div>
+                        <div><span style={{ color: 'var(--muted)' }}>Email:</span> {b.email || '—'}</div>
+                        <div><span style={{ color: 'var(--muted)' }}>Property:</span> <strong>{b.propertyType}</strong></div>
+                        <div><span style={{ color: 'var(--muted)' }}>Max Budget:</span> <strong>₹{b.maxBudget} Lakhs</strong></div>
+                        {b.bedrooms && <div><span style={{ color: 'var(--muted)' }}>Bedrooms:</span> <strong>{b.bedrooms}</strong></div>}
+                        <div style={{ gridColumn: '1/-1' }}><span style={{ color: 'var(--muted)' }}>Areas:</span> <strong>{b.areas.join(', ')}</strong></div>
+                        <div><span style={{ color: 'var(--muted)' }}>Submitted:</span> {b.createdAt}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <a href={`https://wa.me/91${b.whatsapp || b.phone}`} target="_blank" rel="noreferrer"
+                        style={{ flex: 1, display: 'block', background: '#25D366', color: 'white', textAlign: 'center', padding: '10px', borderRadius: 8, fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
+                        WhatsApp Buyer
+                      </a>
+                      <a href={`tel:${b.phone}`}
+                        style={{ flex: 1, display: 'block', background: 'var(--bg3)', color: 'var(--text)', textAlign: 'center', padding: '10px', borderRadius: 8, fontWeight: 600, fontSize: 13, textDecoration: 'none', border: '1px solid var(--border)' }}>
+                        📞 Call Buyer
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* IMAGE MANAGER TAB */}
+        {tab === 'images' && (
+          <div>
+            <h2 style={{ fontWeight: 700, fontSize: 20, marginBottom: 6 }}>Image Manager</h2>
+            <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 24 }}>Manage photos for each listing. Add enhancement notes for our team.</p>
+            {sellers.map(s => (
+              <div key={s.id} className="card" style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <div>
+                    <span style={{ fontWeight: 700 }}>{s.propertyType}</span>
+                    <span style={{ color: 'var(--muted)', fontSize: 13 }}> · {s.locality} · {s.ownerName}</span>
+                  </div>
+                  <span className="badge badge-blue">{s.photos} photos</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 14 }}>
+                  {Array.from({ length: s.photos }).map((_, i) => (
+                    <div key={i} style={{ aspectRatio: '4/3', background: 'var(--bg3)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, border: '1px solid var(--border)' }}>
+                      📷
+                    </div>
+                  ))}
+                  <div style={{ aspectRatio: '4/3', background: 'var(--bg3)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, border: '2px dashed var(--border)', cursor: 'pointer', color: 'var(--muted)' }}>
+                    +
+                  </div>
+                </div>
+                <textarea rows={2} placeholder="Enhancement notes, e.g. 'Brighten kitchen photo, remove clutter from bedroom'" style={{ width: '100%', fontSize: 13 }} />
+              </div>
+            ))}
+          </div>
+        )}
+
       </div>
     </div>
-  )
-}
-
-const s = {
-  page: { display: 'flex', minHeight: '100vh', background: 'var(--bg)' },
-  sidebar: { width: 220, background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', flexShrink: 0 },
-  sideTop: { padding: '20px 16px 16px' },
-  sideLogo: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 },
-  sideLogoText: { fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 800, background: 'linear-gradient(135deg, #818cf8, #6366f1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
-  sideTag: { fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 },
-  nav: { flex: 1, padding: '8px' },
-  navBtn: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', borderRadius: 10, border: 'none', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 4, transition: 'all 0.15s' },
-  sideBottom: { padding: '12px' },
-  viewSite: { width: '100%', padding: '9px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--accent2)', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: 8 },
-  logoutBtn: { width: '100%', padding: '9px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text3)', fontSize: 13, cursor: 'pointer' },
-  main: { flex: 1, padding: '24px', overflowY: 'auto' },
-  topBar: { marginBottom: 24 },
-  search: { width: '100%', maxWidth: 420, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '11px 16px', color: 'var(--text)', fontSize: 14, outline: 'none' },
-  pageTitle: { fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 800, color: 'var(--text)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 },
-  countBadge: { fontSize: 14, padding: '4px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, color: 'var(--text2)' },
-  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12, marginBottom: 32 },
-  statCard: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px', textAlign: 'center' },
-  statVal: { fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 800, marginTop: 4 },
-  statLabel: { color: 'var(--text3)', fontSize: 12, fontWeight: 600, marginTop: 4 },
-  sectionTitle: { fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 12 },
-  table: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', marginBottom: 8 },
-  tableHead: { display: 'grid', gridTemplateColumns: '1.5fr 1.2fr 1fr 1fr 1fr 0.7fr', padding: '10px 16px', background: 'var(--surface2)', color: 'var(--text3)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, gap: 8 },
-  tableRow: { display: 'grid', gridTemplateColumns: '1.5fr 1.2fr 1fr 1fr 1fr 0.7fr', padding: '12px 16px', borderTop: '1px solid var(--border)', gap: 8, alignItems: 'center', fontSize: 13 },
-  rowBtn: { padding: '4px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 12, cursor: 'pointer' },
-  waLink: { color: 'var(--wa)', fontWeight: 600, fontSize: 12, textDecoration: 'none' },
-  listingsGrid: { display: 'flex', flexDirection: 'column', gap: 16 },
-  listingCard: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', display: 'flex', gap: 0 },
-  listingImg: { width: 220, flexShrink: 0, backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: 10, minHeight: 180 },
-  noPhoto: { fontSize: 24, textAlign: 'center', marginTop: 'auto', color: 'var(--text3)' },
-  listingImgActions: { display: 'flex', gap: 6 },
-  imgBtn: { padding: '4px 10px', borderRadius: 8, background: 'rgba(0,0,0,0.65)', color: '#fff', fontSize: 11, border: 'none', cursor: 'pointer' },
-  listingInfo: { flex: 1, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 },
-  listingTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' },
-  listingPrice: { fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800, color: 'var(--text)' },
-  listingMeta: { color: 'var(--text2)', fontSize: 13 },
-  viewsTag: { color: 'var(--text3)', fontSize: 12 },
-  privateBox: { background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, padding: '10px 12px' },
-  privateLabel: { color: '#f87171', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
-  privateRow: { display: 'flex', gap: 8, marginBottom: 4, fontSize: 13 },
-  pLabel: { color: 'var(--text3)', fontWeight: 600, minWidth: 60 },
-  pVal: { color: 'var(--text)', fontWeight: 500 },
-  pLink: { color: 'var(--accent2)', fontWeight: 600 },
-  publicBox: { background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 10, padding: '8px 12px' },
-  publicLabel: { color: 'var(--green)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
-  desc: { color: 'var(--text2)', fontSize: 13, lineHeight: 1.5 },
-  amenityRow: { display: 'flex', gap: 6, flexWrap: 'wrap' },
-  amenTag: { padding: '3px 8px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 11, color: 'var(--text2)' },
-  actionsRow: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 },
-  statusSelect: { padding: '7px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', fontSize: 13, cursor: 'pointer', outline: 'none' },
-  actionBtn: { padding: '7px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 13, cursor: 'pointer' },
-  waActionBtn: { padding: '7px 14px', borderRadius: 10, background: '#25D366', color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' },
-  callBtn: { padding: '7px 14px', borderRadius: 10, background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' },
-  buyerGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 },
-  buyerCard: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '18px', display: 'flex', flexDirection: 'column', gap: 12 },
-  buyerHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' },
-  buyerName: { fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: 'var(--text)' },
-  buyerMeta: { color: 'var(--text2)', fontSize: 13, marginTop: 2 },
-  buyerInfo: { display: 'flex', flexDirection: 'column', gap: 6 },
-  infoRow: { display: 'flex', justifyContent: 'space-between', fontSize: 13 },
-  infoLabel: { color: 'var(--text3)', fontWeight: 600 },
-  infoVal: { color: 'var(--text2)' },
-  reqBox: { background: 'var(--surface2)', borderRadius: 10, padding: '10px 12px' },
-  reqLabel: { color: 'var(--text3)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
-  reqText: { color: 'var(--text)', fontSize: 13, lineHeight: 1.5 },
-  buyerActions: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 },
-  imgEditorGrid: { display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 },
-  imgEditorCard: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px' },
-  imgEditorHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: 12 },
-  photoStrip: { display: 'flex', gap: 10, flexWrap: 'wrap' },
-  photoItem: { position: 'relative', width: 120, height: 80, borderRadius: 10, overflow: 'hidden' },
-  photoImg: { width: '100%', height: '100%', objectFit: 'cover' },
-  photoActions: { position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0 },
-  enhanceBtn: { padding: '4px 8px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 11, cursor: 'pointer' },
-  noPhotoBox: { padding: '16px', background: 'var(--surface2)', borderRadius: 10, textAlign: 'center' },
-  addPhotoBtn: { width: 80, height: 80, borderRadius: 10, border: '2px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, color: 'var(--text3)', cursor: 'pointer' },
-  enhancePanel: { background: 'var(--surface)', border: '1px solid var(--accent)', borderRadius: 16, padding: '20px', maxWidth: 560 },
-  enhancePanelTitle: { fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 12 },
-  enhancePreview: { width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 10, marginBottom: 14 },
-  enhanceLabel: { display: 'block', color: 'var(--text2)', fontSize: 13, fontWeight: 600, marginBottom: 8 },
-  enhanceInput: { width: '100%', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', color: 'var(--text)', fontSize: 14, outline: 'none', resize: 'vertical', marginBottom: 12 },
-  enhanceSubmit: { width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #6366f1, #818cf8)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' },
-  aiResult: { marginTop: 12, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 10, padding: '10px 12px', color: 'var(--green)', fontSize: 13, fontWeight: 500 },
+  );
 }

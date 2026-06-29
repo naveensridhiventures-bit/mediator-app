@@ -1,384 +1,249 @@
-import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { submitLead } from '../utils/api.js'
-import MapPicker from '../components/MapPicker.jsx'
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+const CHENNAI_AREAS = [
+  'Anna Nagar', 'Adyar', 'Velachery', 'T. Nagar', 'Porur', 'Tambaram',
+  'Chromepet', 'Perambur', 'Sholinganallur', 'Pallavaram', 'Madipakkam',
+  'Kodambakkam', 'Nungambakkam', 'Guindy', 'Mylapore', 'Mogappair',
+  'Ambattur', 'Avadi', 'Thiruvottiyur', 'Perungudi', 'OMR', 'ECR',
+  'Besant Nagar', 'Kilpauk', 'Egmore', 'Royapettah', 'Thoraipakkam',
+  'Medavakkam', 'Selaiyur', 'Pallikaranai', 'Poonamallee', 'Sriperumbudur'
+];
 
 const PROPERTY_TYPES = [
   { id: 'house', icon: '🏠', label: 'House', desc: 'Independent home' },
   { id: 'apartment', icon: '🏢', label: 'Apartment', desc: 'Flat / Condo' },
   { id: 'gym', icon: '🏋️', label: 'Gym', desc: 'Fitness center space' },
-  { id: 'salon', icon: '💇', label: 'Salon', desc: 'Beauty & parlour' },
+  { id: 'salon', icon: '💈', label: 'Salon', desc: 'Beauty & parlour' },
   { id: 'hotel', icon: '🏨', label: 'Hotel / PG', desc: 'Hotel or PG rooms' },
-  { id: 'commercial', icon: '🏪', label: 'Shop', desc: 'Retail / office' },
+  { id: 'shop', icon: '🏪', label: 'Shop', desc: 'Retail / office' },
   { id: 'plot', icon: '🌿', label: 'Plot / Land', desc: 'Open land or site' },
   { id: 'warehouse', icon: '🏭', label: 'Warehouse', desc: 'Storage / godown' },
-]
+];
 
-const BUDGETS = [
-  'Under ₹10 Lakh', '₹10–25 Lakh', '₹25–50 Lakh', '₹50L–1 Cr',
-  '₹1–2 Cr', '₹2–5 Cr', 'Above ₹5 Cr', 'Rental / Monthly'
-]
+const STEPS = ['Property', 'Details', 'Location', 'Contact'];
 
-const BHK = ['1 BHK', '2 BHK', '3 BHK', '4 BHK', '4+ BHK', 'Studio', 'N/A']
-
-const STEPS = ['Property', 'Details', 'Location', 'Contact']
-
-export default function UserForm() {
-  const navigate = useNavigate()
-  const [step, setStep] = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [errors, setErrors] = useState({})
+export default function BuyForm() {
+  const nav = useNavigate();
+  const [step, setStep] = useState(0);
   const [form, setForm] = useState({
-    property_type: '',
-    budget: '',
-    bhk: '',
-    area_sqft: '',
-    requirements: '',
-    location: '',
-    latitude: null,
-    longitude: null,
-    name: '',
-    phone: '',
-    email: ''
-  })
+    propertyType: '', purposeType: 'buy',
+    minBudget: '', maxBudget: '', minSize: '', maxSize: '', bedrooms: '',
+    areas: [], flexibility: 'specific',
+    name: '', phone: '', whatsapp: '', email: '', notes: '',
+  });
+  const [loading, setLoading] = useState(false);
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const validateStep = () => {
-    const e = {}
-    if (step === 0 && !form.property_type) e.property_type = 'Please select a property type'
-    if (step === 1) {
-      if (!form.budget) e.budget = 'Select your budget range'
-      if (!form.requirements.trim()) e.requirements = 'Tell us what you need'
-    }
-    if (step === 2 && !form.location.trim()) e.location = 'Enter your preferred area'
-    if (step === 3) {
-      if (!form.name.trim()) e.name = 'Your name is required'
-      if (!/^[6-9]\d{9}$/.test(form.phone)) e.phone = 'Enter a valid 10-digit Indian mobile number'
-    }
-    setErrors(e)
-    return Object.keys(e).length === 0
-  }
-
-  const next = () => { if (validateStep()) setStep(s => s + 1) }
-  const back = () => { setStep(s => s - 1); setErrors({}) }
+  const toggleArea = (area) => {
+    set('areas', form.areas.includes(area)
+      ? form.areas.filter(a => a !== area)
+      : [...form.areas, area]);
+  };
 
   const handleSubmit = async () => {
-    if (!validateStep()) return
-    setLoading(true)
+    setLoading(true);
     try {
-      await submitLead(form)
-      navigate('/thank-you')
-    } catch (err) {
-      setErrors({ submit: 'Something went wrong. Please try again.' })
-    } finally {
-      setLoading(false)
-    }
-  }
+      await fetch('/api/leads/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'buyer', ...form }),
+      });
+    } catch (_) {}
+    setLoading(false);
+    nav('/thank-you?type=buy');
+  };
+
+  const canNext = [
+    form.propertyType !== '',
+    (form.maxBudget !== ''),
+    form.areas.length > 0,
+    form.name && form.phone,
+  ];
 
   return (
-    <div style={styles.page}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       {/* Header */}
-      <div style={styles.header}>
-        <div style={styles.logo}>
-          <span style={styles.logoIcon}>🏡</span>
-          <span style={styles.logoText}>MidiDater</span>
+      <div style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--border)', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+        <button onClick={() => nav('/')} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 20, cursor: 'pointer' }}>←</button>
+        <div>
+          <div style={{ fontFamily: 'Playfair Display, serif', fontWeight: 700, fontSize: 18, color: 'var(--accent2)' }}>MidiDater</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Find Your Perfect Property Match</div>
         </div>
-        <p style={styles.tagline}>Property Mediation Experts</p>
       </div>
 
-      {/* Buy Badge */}
-      <div style={{ textAlign: 'center', paddingTop: 20 }}>
-        <span style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          background: 'linear-gradient(135deg, #0ea5e9, #06b6d4)',
-          color: '#fff', fontWeight: 700, fontSize: 13, letterSpacing: 1,
-          padding: '6px 18px', borderRadius: 30, textTransform: 'uppercase',
-          boxShadow: '0 4px 16px rgba(14,165,233,0.4)'
-        }}>🔍 Buy / Rent Property</span>
-      </div>
-
-      {/* Hero */}
-      <div style={styles.hero}>
-        <h1 style={styles.heroTitle}>
-          Find Your <span style={styles.highlight}>Perfect</span><br />Property Match
-        </h1>
-        <p style={styles.heroSub}>Tell us what you're looking for — we'll handle the rest.</p>
-      </div>
-
-      {/* Step indicator */}
-      <div style={styles.stepWrap}>
-        {STEPS.map((s, i) => (
-          <div key={s} style={styles.stepItem}>
-            <div style={{
-              ...styles.stepDot,
-              background: i < step ? 'var(--green)' : i === step ? 'var(--accent)' : 'var(--surface2)',
-              boxShadow: i === step ? '0 0 0 4px rgba(14,165,233,0.25)' : 'none'
-            }}>
-              {i < step ? '✓' : i + 1}
+      <div style={{ maxWidth: 640, margin: '0 auto', padding: '40px 24px' }}>
+        {/* Step indicator */}
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 40 }}>
+          {STEPS.map((s, i) => (
+            <div key={s} style={{ display: 'flex', alignItems: 'center', flex: i < STEPS.length - 1 ? 1 : 'none' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontWeight: 700, fontSize: 14,
+                  background: i === step ? 'var(--accent2)' : i < step ? 'var(--green)' : 'var(--bg3)',
+                  color: i <= step ? 'white' : 'var(--muted)',
+                  border: i === step ? '2px solid var(--accent2)' : '2px solid var(--border)',
+                }}>
+                  {i < step ? '✓' : i + 1}
+                </div>
+                <div style={{ fontSize: 11, color: i === step ? 'var(--accent2)' : 'var(--muted)', marginTop: 4, fontWeight: i === step ? 600 : 400 }}>{s}</div>
+              </div>
+              {i < STEPS.length - 1 && (
+                <div style={{ flex: 1, height: 2, background: i < step ? 'var(--green)' : 'var(--border)', margin: '0 8px', marginBottom: 18 }} />
+              )}
             </div>
-            <span style={{ ...styles.stepLabel, color: i === step ? 'var(--text)' : 'var(--text3)' }}>{s}</span>
-            {i < STEPS.length - 1 && <div style={{ ...styles.stepLine, background: i < step ? 'var(--green)' : 'var(--border)' }} />}
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      {/* Form card */}
-      <div style={styles.card}>
-
-        {/* STEP 0: Property Type */}
+        {/* Step 0: Property Type */}
         {step === 0 && (
           <div>
-            <h2 style={styles.cardTitle}>What are you looking for?</h2>
-            <p style={styles.cardSub}>Select the type of property you need</p>
-            <div style={styles.typeGrid}>
+            <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6 }}>What are you looking for?</h2>
+            <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 24 }}>Select the type of property you need</p>
+
+            <div style={{ marginBottom: 20 }}>
+              <label>Buy or Rent?</label>
+              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                {['buy', 'rent'].map(t => (
+                  <button key={t} onClick={() => set('purposeType', t)}
+                    style={{ flex: 1, padding: '10px', borderRadius: 8, border: `2px solid ${form.purposeType === t ? 'var(--accent2)' : 'var(--border)'}`, background: form.purposeType === t ? 'rgba(6,182,212,0.1)' : 'var(--bg3)', color: 'var(--text)', fontWeight: 600, fontSize: 14, cursor: 'pointer', textTransform: 'capitalize' }}>
+                    {t === 'buy' ? '🛒 Buy' : '🔑 Rent'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               {PROPERTY_TYPES.map(pt => (
-                <button key={pt.id} style={{
-                  ...styles.typeCard,
-                  border: form.property_type === pt.id
-                    ? '2px solid var(--accent)' : '2px solid var(--border)',
-                  background: form.property_type === pt.id
-                    ? 'rgba(14,165,233,0.12)' : 'var(--surface)',
-                  transform: form.property_type === pt.id ? 'scale(1.03)' : 'scale(1)'
-                }} onClick={() => { set('property_type', pt.id); setErrors({}) }}>
-                  <span style={styles.typeIcon}>{pt.icon}</span>
-                  <span style={styles.typeLabel}>{pt.label}</span>
-                  <span style={styles.typeDesc}>{pt.desc}</span>
+                <div key={pt.id} onClick={() => set('propertyType', pt.id)}
+                  style={{ padding: '16px', borderRadius: 10, border: `2px solid ${form.propertyType === pt.id ? 'var(--accent2)' : 'var(--border)'}`, background: form.propertyType === pt.id ? 'rgba(6,182,212,0.08)' : 'var(--bg2)', cursor: 'pointer', transition: 'all 0.2s' }}>
+                  <div style={{ fontSize: 28, marginBottom: 6 }}>{pt.icon}</div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{pt.label}</div>
+                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>{pt.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Step 1: Budget & Size */}
+        {step === 1 && (
+          <div>
+            <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6 }}>Budget & Size</h2>
+            <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 24 }}>Tell us your budget and space requirements</p>
+
+            <div className="form-group">
+              <label>Budget Range</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <input type="number" placeholder="Min (₹ Lakhs)" value={form.minBudget} onChange={e => set('minBudget', e.target.value)} />
+                </div>
+                <div>
+                  <input type="number" placeholder="Max (₹ Lakhs)" value={form.maxBudget} onChange={e => set('maxBudget', e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Size Preference (sq ft)</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <input type="number" placeholder="Min sqft" value={form.minSize} onChange={e => set('minSize', e.target.value)} />
+                <input type="number" placeholder="Max sqft" value={form.maxSize} onChange={e => set('maxSize', e.target.value)} />
+              </div>
+            </div>
+
+            {['house', 'apartment'].includes(form.propertyType) && (
+              <div className="form-group">
+                <label>Bedrooms Required</label>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {['1 BHK', '2 BHK', '3 BHK', '4 BHK', '4+ BHK'].map(b => (
+                    <button key={b} onClick={() => set('bedrooms', b)}
+                      style={{ flex: 1, padding: '10px 8px', borderRadius: 8, border: `2px solid ${form.bedrooms === b ? 'var(--accent)' : 'var(--border)'}`, background: form.bedrooms === b ? 'rgba(124,58,237,0.1)' : 'var(--bg3)', color: 'var(--text)', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
+                      {b}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="form-group">
+              <label>Additional Notes</label>
+              <textarea rows={3} placeholder="Any specific requirements, amenities needed, etc." value={form.notes} onChange={e => set('notes', e.target.value)} />
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Location */}
+        {step === 2 && (
+          <div>
+            <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6 }}>Preferred Locations</h2>
+            <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 8 }}>Select all areas you're open to</p>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+              <span className="badge badge-blue">{form.areas.length} selected</span>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {CHENNAI_AREAS.map(area => (
+                <button key={area} onClick={() => toggleArea(area)}
+                  style={{ padding: '7px 14px', borderRadius: 20, border: `1.5px solid ${form.areas.includes(area) ? 'var(--accent2)' : 'var(--border)'}`, background: form.areas.includes(area) ? 'rgba(6,182,212,0.12)' : 'var(--bg2)', color: form.areas.includes(area) ? 'var(--accent2)' : 'var(--text)', fontSize: 13, fontWeight: form.areas.includes(area) ? 600 : 400, cursor: 'pointer', transition: 'all 0.15s' }}>
+                  {form.areas.includes(area) ? '✓ ' : ''}{area}
                 </button>
               ))}
             </div>
-            {errors.property_type && <p style={styles.error}>{errors.property_type}</p>}
           </div>
         )}
 
-        {/* STEP 1: Details */}
-        {step === 1 && (
-          <div>
-            <h2 style={styles.cardTitle}>Property Details</h2>
-            <p style={styles.cardSub}>Help us find the perfect match for you</p>
-
-            <label style={styles.label}>Budget Range *</label>
-            <div style={styles.chipGrid}>
-              {BUDGETS.map(b => (
-                <button key={b} style={{
-                  ...styles.chip,
-                  background: form.budget === b ? 'var(--accent)' : 'var(--surface2)',
-                  color: form.budget === b ? '#fff' : 'var(--text2)',
-                  border: form.budget === b ? '1px solid var(--accent)' : '1px solid var(--border)'
-                }} onClick={() => set('budget', b)}>{b}</button>
-              ))}
-            </div>
-            {errors.budget && <p style={styles.error}>{errors.budget}</p>}
-
-            {['house', 'apartment'].includes(form.property_type) && (
-              <>
-                <label style={styles.label}>BHK Configuration</label>
-                <div style={styles.chipGrid}>
-                  {BHK.map(b => (
-                    <button key={b} style={{
-                      ...styles.chip,
-                      background: form.bhk === b ? 'var(--accent)' : 'var(--surface2)',
-                      color: form.bhk === b ? '#fff' : 'var(--text2)',
-                      border: form.bhk === b ? '1px solid var(--accent)' : '1px solid var(--border)'
-                    }} onClick={() => set('bhk', b)}>{b}</button>
-                  ))}
-                </div>
-              </>
-            )}
-
-            <label style={styles.label}>Area Required (sq ft)</label>
-            <input style={styles.input} type="number" placeholder="e.g. 1200"
-              value={form.area_sqft} onChange={e => set('area_sqft', e.target.value)} />
-
-            <label style={styles.label}>Your Requirements *</label>
-            <textarea style={{ ...styles.input, height: 100, resize: 'vertical' }}
-              placeholder="Describe what you're looking for — amenities, ground floor preference, parking, etc."
-              value={form.requirements} onChange={e => set('requirements', e.target.value)} />
-            {errors.requirements && <p style={styles.error}>{errors.requirements}</p>}
-          </div>
-        )}
-
-        {/* STEP 2: Location */}
-        {step === 2 && (
-          <div>
-            <h2 style={styles.cardTitle}>Preferred Location</h2>
-            <p style={styles.cardSub}>Pin the area you're interested in</p>
-
-            <label style={styles.label}>Area / Locality *</label>
-            <input style={styles.input} type="text"
-              placeholder="e.g. Anna Nagar, Adyar, OMR, T.Nagar, Velachery…"
-              value={form.location} onChange={e => set('location', e.target.value)} />
-            {errors.location && <p style={styles.error}>{errors.location}</p>}
-
-            <label style={styles.label}>Pin on Map <span style={{ color: 'var(--text3)', fontWeight: 400 }}>(optional)</span></label>
-            <MapPicker onSelect={(lat, lng) => { set('latitude', lat); set('longitude', lng) }} />
-            {form.latitude && (
-              <p style={styles.mapInfo}>📍 Pinned: {form.latitude.toFixed(4)}, {form.longitude.toFixed(4)}</p>
-            )}
-          </div>
-        )}
-
-        {/* STEP 3: Contact */}
+        {/* Step 3: Contact */}
         {step === 3 && (
           <div>
-            <h2 style={styles.cardTitle}>Your Contact Details</h2>
-            <p style={styles.cardSub}>We'll reach out to you personally — no spam, ever.</p>
+            <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6 }}>Your Contact Details</h2>
+            <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 24 }}>We'll reach out with matching properties</p>
 
-            <label style={styles.label}>Full Name *</label>
-            <input style={styles.input} type="text" placeholder="Your name"
-              value={form.name} onChange={e => set('name', e.target.value)} />
-            {errors.name && <p style={styles.error}>{errors.name}</p>}
-
-            <label style={styles.label}>Mobile Number *</label>
-            <div style={{ position: 'relative' }}>
-              <span style={styles.phonePrefix}>+91</span>
-              <input style={{ ...styles.input, paddingLeft: 52 }} type="tel"
-                placeholder="10-digit mobile" maxLength={10}
-                value={form.phone} onChange={e => set('phone', e.target.value.replace(/\D/g, ''))} />
+            <div className="form-group">
+              <label>Full Name *</label>
+              <input type="text" placeholder="Your name" value={form.name} onChange={e => set('name', e.target.value)} />
             </div>
-            {errors.phone && <p style={styles.error}>{errors.phone}</p>}
+            <div className="form-group">
+              <label>Phone Number *</label>
+              <input type="tel" placeholder="10-digit mobile number" value={form.phone} onChange={e => set('phone', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>WhatsApp Number</label>
+              <input type="tel" placeholder="If different from phone" value={form.whatsapp} onChange={e => set('whatsapp', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>Email Address</label>
+              <input type="email" placeholder="your@email.com" value={form.email} onChange={e => set('email', e.target.value)} />
+            </div>
 
-            <label style={styles.label}>Email <span style={{ color: 'var(--text3)', fontWeight: 400 }}>(optional)</span></label>
-            <input style={styles.input} type="email" placeholder="your@email.com"
-              value={form.email} onChange={e => set('email', e.target.value)} />
-
-            <div style={styles.privacyNote}>
-              🔒 Your details are <strong>100% private</strong>. Only our team can access your information. It will never be shared or listed publicly.
+            <div style={{ background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.2)', borderRadius: 10, padding: 16, marginTop: 8 }}>
+              <div style={{ fontSize: 13, color: 'var(--accent2)', fontWeight: 600, marginBottom: 4 }}>🔒 Privacy Promise</div>
+              <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
+                Your details are shared only with our verified mediators. We never sell your information.
+              </div>
             </div>
           </div>
         )}
 
-        {errors.submit && <p style={{ ...styles.error, marginTop: 12 }}>{errors.submit}</p>}
-
         {/* Navigation */}
-        <div style={styles.navRow}>
+        <div style={{ display: 'flex', gap: 12, marginTop: 32 }}>
           {step > 0 && (
-            <button style={styles.btnBack} onClick={back}>← Back</button>
+            <button className="btn-outline" onClick={() => setStep(s => s - 1)} style={{ flex: 1 }}>← Back</button>
           )}
           {step < 3 ? (
-            <button style={{ ...styles.btnNext, marginLeft: step === 0 ? 'auto' : 0 }} onClick={next}>
+            <button className="btn-primary" onClick={() => setStep(s => s + 1)} disabled={!canNext[step]}
+              style={{ flex: 2, opacity: canNext[step] ? 1 : 0.5 }}>
               Continue →
             </button>
           ) : (
-            <button style={{ ...styles.btnSubmit, opacity: loading ? 0.7 : 1 }}
-              onClick={handleSubmit} disabled={loading}>
-              {loading ? '⏳ Submitting…' : '🚀 Submit My Requirement'}
+            <button className="btn-primary" onClick={handleSubmit} disabled={loading || !canNext[3]}
+              style={{ flex: 2, opacity: canNext[3] ? 1 : 0.5 }}>
+              {loading ? 'Submitting...' : '✅ Submit Requirement'}
             </button>
           )}
         </div>
       </div>
-
-      <p style={styles.footer}>© 2024 MidiDater · Property Mediation Experts · Chennai</p>
     </div>
-  )
-}
-
-const styles = {
-  page: {
-    minHeight: '100vh',
-    background: 'linear-gradient(135deg, #03061a 0%, #041830 50%, #022030 100%)',
-    padding: '0 0 60px',
-  },
-  header: {
-    display: 'flex', flexDirection: 'column', alignItems: 'center',
-    padding: '28px 20px 0',
-  },
-  logo: { display: 'flex', alignItems: 'center', gap: 10 },
-  logoIcon: { fontSize: 28 },
-  logoText: {
-    fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700,
-    background: 'linear-gradient(135deg, #38bdf8, #06b6d4)', WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent'
-  },
-  tagline: { color: 'var(--text3)', fontSize: 12, marginTop: 4, letterSpacing: 1.5, textTransform: 'uppercase' },
-  hero: { textAlign: 'center', padding: '32px 20px 20px' },
-  heroTitle: {
-    fontFamily: 'var(--font-display)', fontSize: 'clamp(26px,5vw,38px)',
-    fontWeight: 800, lineHeight: 1.2, color: 'var(--text)'
-  },
-  highlight: {
-    background: 'linear-gradient(135deg, #38bdf8, #06b6d4)',
-    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'
-  },
-  heroSub: { color: 'var(--text2)', marginTop: 12, fontSize: 15 },
-  stepWrap: {
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    gap: 0, padding: '0 20px 24px', maxWidth: 420, margin: '0 auto'
-  },
-  stepItem: { display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', flex: 1 },
-  stepDot: {
-    width: 32, height: 32, borderRadius: '50%', display: 'flex',
-    alignItems: 'center', justifyContent: 'center', fontSize: 13,
-    fontWeight: 700, color: '#fff', transition: 'all 0.3s', zIndex: 1,
-    position: 'relative'
-  },
-  stepLabel: { fontSize: 11, marginTop: 6, fontWeight: 600, textAlign: 'center' },
-  stepLine: {
-    position: 'absolute', top: 16, left: 'calc(50% + 16px)',
-    width: 'calc(100% - 32px)', height: 2, transition: 'background 0.3s'
-  },
-  card: {
-    background: 'var(--surface)', border: '1px solid var(--border)',
-    borderRadius: 20, padding: '28px 24px',
-    maxWidth: 520, margin: '0 auto', boxShadow: 'var(--shadow-lg)'
-  },
-  cardTitle: { fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 700, marginBottom: 6 },
-  cardSub: { color: 'var(--text2)', fontSize: 14, marginBottom: 24 },
-  typeGrid: {
-    display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 16
-  },
-  typeCard: {
-    display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
-    gap: 2, padding: '14px 14px', borderRadius: 14, cursor: 'pointer',
-    transition: 'all 0.2s', textAlign: 'left', width: '100%'
-  },
-  typeIcon: { fontSize: 24, marginBottom: 4 },
-  typeLabel: { fontWeight: 700, fontSize: 14, color: 'var(--text)' },
-  typeDesc: { fontSize: 12, color: 'var(--text3)' },
-  label: { display: 'block', color: 'var(--text2)', fontSize: 13, fontWeight: 600, marginBottom: 8, marginTop: 18 },
-  chipGrid: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
-  chip: {
-    padding: '7px 14px', borderRadius: 20, fontSize: 13,
-    fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'var(--font-body)'
-  },
-  input: {
-    width: '100%', background: 'var(--surface2)', border: '1px solid var(--border)',
-    borderRadius: 12, padding: '12px 14px', color: 'var(--text)', fontSize: 15,
-    outline: 'none', fontFamily: 'var(--font-body)', transition: 'border 0.2s',
-    marginBottom: 4
-  },
-  phonePrefix: {
-    position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
-    color: 'var(--text2)', fontSize: 14, fontWeight: 600, pointerEvents: 'none'
-  },
-  mapInfo: {
-    marginTop: 8, fontSize: 13, color: 'var(--green)',
-    background: 'rgba(16,185,129,0.1)', padding: '8px 12px', borderRadius: 8
-  },
-  privacyNote: {
-    marginTop: 20, background: 'rgba(14,165,233,0.08)', border: '1px solid rgba(14,165,233,0.2)',
-    borderRadius: 12, padding: '12px 14px', fontSize: 13, color: 'var(--text2)',
-    lineHeight: 1.5
-  },
-  error: { color: '#f87171', fontSize: 12, marginTop: 4, fontWeight: 500 },
-  navRow: { display: 'flex', gap: 12, marginTop: 28, justifyContent: 'space-between' },
-  btnBack: {
-    padding: '12px 20px', borderRadius: 12, border: '1px solid var(--border)',
-    background: 'transparent', color: 'var(--text2)', fontSize: 14,
-    fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)'
-  },
-  btnNext: {
-    padding: '12px 28px', borderRadius: 12, border: 'none',
-    background: 'linear-gradient(135deg, #0ea5e9, #06b6d4)',
-    color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
-    fontFamily: 'var(--font-body)', boxShadow: '0 4px 20px rgba(14,165,233,0.4)'
-  },
-  btnSubmit: {
-    flex: 1, padding: '14px 20px', borderRadius: 12, border: 'none',
-    background: 'linear-gradient(135deg, #0ea5e9, #06b6d4)',
-    color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer',
-    fontFamily: 'var(--font-body)', boxShadow: '0 4px 24px rgba(14,165,233,0.5)',
-    transition: 'opacity 0.2s'
-  },
-  footer: { textAlign: 'center', color: 'var(--text3)', fontSize: 12, marginTop: 40 }
+  );
 }

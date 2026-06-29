@@ -1,438 +1,315 @@
-import { useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-
-const PROPERTY_TYPES = [
-  { id: 'apartment', icon: '🏢', label: 'Apartment', desc: 'Flat / Condo' },
-  { id: 'house', icon: '🏠', label: 'House', desc: 'Independent home' },
-  { id: 'plot', icon: '🌿', label: 'Plot / Land', desc: 'Open land or site' },
-  { id: 'commercial', icon: '🏪', label: 'Shop / Office', desc: 'Commercial space' },
-  { id: 'warehouse', icon: '🏭', label: 'Warehouse', desc: 'Storage / godown' },
-  { id: 'hotel', icon: '🏨', label: 'Hotel / PG', desc: 'Hotel or PG rooms' },
-  { id: 'gym', icon: '🏋️', label: 'Gym', desc: 'Fitness center space' },
-  { id: 'salon', icon: '💇', label: 'Salon', desc: 'Beauty & parlour' },
-]
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const CHENNAI_AREAS = [
-  'Anna Nagar', 'Adyar', 'T.Nagar', 'Velachery', 'OMR', 'ECR',
-  'Porur', 'Tambaram', 'Chromepet', 'Perambur', 'Kilpauk',
-  'Nungambakkam', 'Mylapore', 'Poonamallee', 'Guindy', 'Other'
-]
+  'Anna Nagar', 'Adyar', 'Velachery', 'T. Nagar', 'Porur', 'Tambaram',
+  'Chromepet', 'Perambur', 'Sholinganallur', 'Pallavaram', 'Madipakkam',
+  'Kodambakkam', 'Nungambakkam', 'Guindy', 'Mylapore', 'Mogappair',
+  'Ambattur', 'Avadi', 'Thiruvottiyur', 'Perungudi', 'OMR', 'ECR',
+  'Besant Nagar', 'Kilpauk', 'Egmore', 'Royapettah', 'Thoraipakkam',
+  'Medavakkam', 'Selaiyur', 'Pallikaranai', 'Poonamallee', 'Sriperumbudur'
+];
 
-const PRICE_RANGES = [
-  'Under ₹10 Lakh', '₹10–25 Lakh', '₹25–50 Lakh', '₹50L–1 Cr',
-  '₹1–2 Cr', '₹2–5 Cr', 'Above ₹5 Cr', 'Negotiable'
-]
+const PROPERTY_TYPES = [
+  { id: 'house', icon: '🏠', label: 'House' },
+  { id: 'apartment', icon: '🏢', label: 'Apartment' },
+  { id: 'gym', icon: '🏋️', label: 'Gym' },
+  { id: 'salon', icon: '💈', label: 'Salon' },
+  { id: 'hotel', icon: '🏨', label: 'Hotel / PG' },
+  { id: 'shop', icon: '🏪', label: 'Shop' },
+  { id: 'plot', icon: '🌿', label: 'Plot / Land' },
+  { id: 'warehouse', icon: '🏭', label: 'Warehouse' },
+];
 
-const BHK = ['1 BHK', '2 BHK', '3 BHK', '4 BHK', '4+ BHK', 'Studio', 'N/A']
+const AMENITIES = ['Car Parking', 'Lift', 'Security', 'Power Backup', 'Garden', 'Swimming Pool', 'Gym', 'CCTV', 'Water 24/7', 'Covered Parking'];
 
-const STEPS = ['Property', 'Details', 'Photos', 'Contact']
+const STEPS = ['Property Type', 'Details', 'Photos', 'Contact'];
 
 export default function SellForm() {
-  const navigate = useNavigate()
-  const [step, setStep] = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [errors, setErrors] = useState({})
-  const [photos, setPhotos] = useState([])
-  const fileRef = useRef()
-
+  const nav = useNavigate();
+  const [step, setStep] = useState(0);
   const [form, setForm] = useState({
-    property_type: '',
-    price: '',
-    bhk: '',
-    area_sqft: '',
-    area_locality: '',
-    custom_area: '',
-    description: '',
-    amenities: [],
-    name: '',
-    phone: '',
-    email: '',
-    whatsapp: '',
-    listing_type: 'sell',
-  })
+    propertyType: '', listingType: 'sale',
+    price: '', area: '', bedrooms: '', floor: '', totalFloors: '', facing: '',
+    exactAddress: '', locality: '', description: '', amenities: [],
+    photos: [], photoNote: '',
+    ownerName: '', phone: '', whatsapp: '', email: '', availability: 'anytime',
+  });
+  const [loading, setLoading] = useState(false);
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const toggleAmenity = a => set('amenities', form.amenities.includes(a) ? form.amenities.filter(x => x !== a) : [...form.amenities, a]);
 
-  const validateStep = () => {
-    const e = {}
-    if (step === 0 && !form.property_type) e.property_type = 'Select a property type'
-    if (step === 1) {
-      if (!form.price) e.price = 'Select a price range'
-      if (!form.area_locality) e.area_locality = 'Select your area'
-      if (!form.description.trim()) e.description = 'Add a brief description'
-    }
-    if (step === 3) {
-      if (!form.name.trim()) e.name = 'Your name is required'
-      if (!/^[6-9]\d{9}$/.test(form.phone)) e.phone = 'Enter a valid 10-digit mobile number'
-    }
-    setErrors(e)
-    return Object.keys(e).length === 0
-  }
+  const handlePhotoChange = (e) => {
+    const files = Array.from(e.target.files);
+    const previews = files.map(f => ({ name: f.name, url: URL.createObjectURL(f), file: f }));
+    set('photos', [...form.photos, ...previews].slice(0, 10));
+  };
 
-  const next = () => { if (validateStep()) setStep(s => s + 1) }
-  const back = () => { setStep(s => s - 1); setErrors({}) }
-
-  const handlePhoto = (e) => {
-    const files = Array.from(e.target.files)
-    files.forEach(file => {
-      const reader = new FileReader()
-      reader.onload = (ev) => {
-        setPhotos(prev => [...prev, { url: ev.target.result, name: file.name }])
-      }
-      reader.readAsDataURL(file)
-    })
-  }
-
-  const removePhoto = (idx) => setPhotos(prev => prev.filter((_, i) => i !== idx))
+  const removePhoto = (i) => set('photos', form.photos.filter((_, idx) => idx !== i));
 
   const handleSubmit = async () => {
-    if (!validateStep()) return
-    setLoading(true)
-    // Simulate submission
-    setTimeout(() => {
-      setLoading(false)
-      navigate('/thank-you?type=sell')
-    }, 1500)
-  }
+    setLoading(true);
+    try {
+      const fd = new FormData();
+      Object.entries(form).forEach(([k, v]) => {
+        if (k === 'photos') v.forEach(p => fd.append('photos', p.file));
+        else if (Array.isArray(v)) fd.append(k, v.join(','));
+        else fd.append(k, v);
+      });
+      fd.append('type', 'seller');
+      await fetch('/api/leads/submit', { method: 'POST', body: fd });
+    } catch (_) {}
+    setLoading(false);
+    nav('/thank-you?type=sell');
+  };
 
-  const toggleAmenity = (a) => {
-    set('amenities', form.amenities.includes(a)
-      ? form.amenities.filter(x => x !== a)
-      : [...form.amenities, a])
-  }
-
-  const AMENITIES = ['Parking', 'Lift', 'Generator', 'Security', 'Garden', 'Swimming Pool', 'Gym', 'Near Metro', 'School Nearby', 'Hospital Nearby']
+  const canNext = [
+    form.propertyType !== '',
+    form.price !== '' && form.area !== '' && form.locality !== '',
+    true,
+    form.ownerName && form.phone,
+  ];
 
   return (
-    <div style={s.page}>
-      <div style={s.glow} />
-
+    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       {/* Header */}
-      <header style={s.header}>
-        <button style={s.back} onClick={() => navigate('/')}>← Back</button>
-        <div style={s.logo}>
-          <span>🏡</span>
-          <span style={s.logoText}>MidiDater</span>
+      <div style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--border)', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+        <button onClick={() => nav('/')} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 20, cursor: 'pointer' }}>←</button>
+        <div>
+          <div style={{ fontFamily: 'Playfair Display, serif', fontWeight: 700, fontSize: 18, color: '#a78bfa' }}>MidiDater</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>List Your Property</div>
         </div>
-        <span style={s.headerTag}>Sell Property</span>
-      </header>
-
-      <div style={s.heroMini}>
-        <h1 style={s.title}>List Your Property</h1>
-        <p style={s.sub}>Our team will personally handle inquiries — your contact stays private.</p>
       </div>
 
-      {/* Step indicator */}
-      <div style={s.steps}>
-        {STEPS.map((st, i) => (
-          <div key={st} style={s.stepItem}>
-            <div style={{
-              ...s.dot,
-              background: i < step ? 'var(--green)' : i === step ? 'var(--accent)' : 'var(--surface2)',
-              boxShadow: i === step ? '0 0 0 4px rgba(99,102,241,0.25)' : 'none'
-            }}>{i < step ? '✓' : i + 1}</div>
-            <span style={{ ...s.stepLabel, color: i === step ? 'var(--text)' : 'var(--text3)' }}>{st}</span>
-            {i < STEPS.length - 1 && <div style={{ ...s.stepLine, background: i < step ? 'var(--green)' : 'var(--border)' }} />}
-          </div>
-        ))}
-      </div>
+      <div style={{ maxWidth: 640, margin: '0 auto', padding: '40px 24px' }}>
+        {/* Step indicator */}
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 40 }}>
+          {STEPS.map((s, i) => (
+            <div key={s} style={{ display: 'flex', alignItems: 'center', flex: i < STEPS.length - 1 ? 1 : 'none' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontWeight: 700, fontSize: 14,
+                  background: i === step ? 'var(--accent)' : i < step ? 'var(--green)' : 'var(--bg3)',
+                  color: i <= step ? 'white' : 'var(--muted)',
+                  border: i === step ? '2px solid var(--accent)' : '2px solid var(--border)',
+                }}>
+                  {i < step ? '✓' : i + 1}
+                </div>
+                <div style={{ fontSize: 11, color: i === step ? '#a78bfa' : 'var(--muted)', marginTop: 4, fontWeight: i === step ? 600 : 400, whiteSpace: 'nowrap' }}>{s}</div>
+              </div>
+              {i < STEPS.length - 1 && <div style={{ flex: 1, height: 2, background: i < step ? 'var(--green)' : 'var(--border)', margin: '0 6px', marginBottom: 18 }} />}
+            </div>
+          ))}
+        </div>
 
-      {/* Card */}
-      <div style={s.card}>
-
-        {/* STEP 0: Type */}
+        {/* Step 0: Property Type */}
         {step === 0 && (
           <div>
-            <h2 style={s.cardTitle}>What are you selling?</h2>
-            <p style={s.cardSub}>Select the type of property</p>
-            <div style={s.typeGrid}>
-              {PROPERTY_TYPES.map(pt => (
-                <button key={pt.id} style={{
-                  ...s.typeCard,
-                  border: form.property_type === pt.id ? '2px solid var(--green)' : '2px solid var(--border)',
-                  background: form.property_type === pt.id ? 'rgba(16,185,129,0.1)' : 'var(--surface2)',
-                }} onClick={() => { set('property_type', pt.id); setErrors({}) }}>
-                  <span style={s.typeIcon}>{pt.icon}</span>
-                  <span style={s.typeLabel}>{pt.label}</span>
-                  <span style={s.typeDesc}>{pt.desc}</span>
-                </button>
-              ))}
-            </div>
-            {errors.property_type && <p style={s.err}>{errors.property_type}</p>}
+            <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6 }}>What are you selling?</h2>
+            <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 20 }}>Select the property type</p>
 
-            <label style={s.label}>Listing Type</label>
-            <div style={s.chipGrid}>
-              {[{ id: 'sell', label: '🏷️ For Sale' }, { id: 'rent', label: '🔑 For Rent' }].map(lt => (
-                <button key={lt.id} style={{
-                  ...s.chip,
-                  background: form.listing_type === lt.id ? 'var(--accent)' : 'var(--surface2)',
-                  color: form.listing_type === lt.id ? '#fff' : 'var(--text2)',
-                  border: form.listing_type === lt.id ? '1px solid var(--accent)' : '1px solid var(--border)',
-                }} onClick={() => set('listing_type', lt.id)}>{lt.label}</button>
+            <div style={{ marginBottom: 20 }}>
+              <label>Sale or Rent?</label>
+              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                {['sale', 'rent'].map(t => (
+                  <button key={t} onClick={() => set('listingType', t)}
+                    style={{ flex: 1, padding: '10px', borderRadius: 8, border: `2px solid ${form.listingType === t ? 'var(--accent)' : 'var(--border)'}`, background: form.listingType === t ? 'rgba(124,58,237,0.1)' : 'var(--bg3)', color: 'var(--text)', fontWeight: 600, fontSize: 14, cursor: 'pointer', textTransform: 'capitalize' }}>
+                    {t === 'sale' ? '💰 For Sale' : '🔑 For Rent'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {PROPERTY_TYPES.map(pt => (
+                <div key={pt.id} onClick={() => set('propertyType', pt.id)}
+                  style={{ padding: '16px', borderRadius: 10, border: `2px solid ${form.propertyType === pt.id ? 'var(--accent)' : 'var(--border)'}`, background: form.propertyType === pt.id ? 'rgba(124,58,237,0.08)' : 'var(--bg2)', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontSize: 28 }}>{pt.icon}</span>
+                  <span style={{ fontWeight: 600, fontSize: 15 }}>{pt.label}</span>
+                </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* STEP 1: Details */}
+        {/* Step 1: Property Details */}
         {step === 1 && (
           <div>
-            <h2 style={s.cardTitle}>Property Details</h2>
-            <p style={s.cardSub}>The more detail, the more serious buyers you attract</p>
+            <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6 }}>Property Details</h2>
+            <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 24 }}>Tell buyers about your property</p>
 
-            <label style={s.label}>Price / Ask *</label>
-            <div style={s.chipGrid}>
-              {PRICE_RANGES.map(p => (
-                <button key={p} style={{
-                  ...s.chip,
-                  background: form.price === p ? 'var(--green)' : 'var(--surface2)',
-                  color: form.price === p ? '#fff' : 'var(--text2)',
-                  border: form.price === p ? '1px solid var(--green)' : '1px solid var(--border)',
-                }} onClick={() => set('price', p)}>{p}</button>
-              ))}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Asking Price *</label>
+                <input type="text" placeholder={form.listingType === 'sale' ? "e.g. 85 Lakhs" : "e.g. 20,000/month"} value={form.price} onChange={e => set('price', e.target.value)} />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Built-up Area (sqft) *</label>
+                <input type="number" placeholder="e.g. 1200" value={form.area} onChange={e => set('area', e.target.value)} />
+              </div>
             </div>
-            {errors.price && <p style={s.err}>{errors.price}</p>}
 
-            <label style={s.label}>Exact Price (optional)</label>
-            <input style={s.input} type="text" placeholder="e.g. ₹72,00,000"
-              value={form.exact_price || ''} onChange={e => set('exact_price', e.target.value)} />
-
-            {['house', 'apartment'].includes(form.property_type) && (
-              <>
-                <label style={s.label}>BHK Configuration</label>
-                <div style={s.chipGrid}>
-                  {BHK.map(b => (
-                    <button key={b} style={{
-                      ...s.chip,
-                      background: form.bhk === b ? 'var(--accent)' : 'var(--surface2)',
-                      color: form.bhk === b ? '#fff' : 'var(--text2)',
-                      border: form.bhk === b ? '1px solid var(--accent)' : '1px solid var(--border)',
-                    }} onClick={() => set('bhk', b)}>{b}</button>
-                  ))}
+            {['house', 'apartment'].includes(form.propertyType) && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 18 }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>Bedrooms</label>
+                  <select value={form.bedrooms} onChange={e => set('bedrooms', e.target.value)}>
+                    <option value="">Select</option>
+                    {['1 BHK', '2 BHK', '3 BHK', '4 BHK', '4+ BHK'].map(b => <option key={b}>{b}</option>)}
+                  </select>
                 </div>
-              </>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>Floor</label>
+                  <input type="text" placeholder="e.g. 3" value={form.floor} onChange={e => set('floor', e.target.value)} />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>Facing</label>
+                  <select value={form.facing} onChange={e => set('facing', e.target.value)}>
+                    <option value="">Select</option>
+                    {['East', 'West', 'North', 'South', 'NE', 'NW', 'SE', 'SW'].map(f => <option key={f}>{f}</option>)}
+                  </select>
+                </div>
+              </div>
             )}
 
-            <label style={s.label}>Area (sq ft)</label>
-            <input style={s.input} type="number" placeholder="e.g. 1200"
-              value={form.area_sqft} onChange={e => set('area_sqft', e.target.value)} />
-
-            <label style={s.label}>Locality / Area * <span style={{ color: 'var(--text3)', fontSize: 12 }}>(shown to buyers)</span></label>
-            <div style={s.chipGrid}>
-              {CHENNAI_AREAS.map(a => (
-                <button key={a} style={{
-                  ...s.chip,
-                  background: form.area_locality === a ? 'var(--accent)' : 'var(--surface2)',
-                  color: form.area_locality === a ? '#fff' : 'var(--text2)',
-                  border: form.area_locality === a ? '1px solid var(--accent)' : '1px solid var(--border)',
-                }} onClick={() => set('area_locality', a)}>{a}</button>
-              ))}
+            <div className="form-group">
+              <label>Area / Locality *</label>
+              <select value={form.locality} onChange={e => set('locality', e.target.value)}>
+                <option value="">Select area in Chennai</option>
+                {CHENNAI_AREAS.map(a => <option key={a}>{a}</option>)}
+              </select>
             </div>
-            {form.area_locality === 'Other' && (
-              <input style={{ ...s.input, marginTop: 10 }} type="text" placeholder="Enter area name"
-                value={form.custom_area} onChange={e => set('custom_area', e.target.value)} />
-            )}
-            {errors.area_locality && <p style={s.err}>{errors.area_locality}</p>}
 
-            <label style={s.label}>Exact Address <span style={{ color: 'var(--text3)', fontSize: 12 }}>(private — only admin sees this)</span></label>
-            <textarea style={{ ...s.input, height: 70 }} placeholder="Door no., Street, Landmark…"
-              value={form.exact_address || ''} onChange={e => set('exact_address', e.target.value)} />
+            <div className="form-group">
+              <label>Exact Address <span style={{ color: 'var(--accent)', fontSize: 11 }}>(🔒 Private — never shown publicly)</span></label>
+              <textarea rows={2} placeholder="Full address with door number, street name" value={form.exactAddress} onChange={e => set('exactAddress', e.target.value)} />
+            </div>
 
-            <label style={s.label}>Description *</label>
-            <textarea style={{ ...s.input, height: 100, resize: 'vertical' }}
-              placeholder="Describe the property — age, floor, facing, special features, nearby landmarks…"
-              value={form.description} onChange={e => set('description', e.target.value)} />
-            {errors.description && <p style={s.err}>{errors.description}</p>}
+            <div className="form-group">
+              <label>Description</label>
+              <textarea rows={3} placeholder="Describe your property — age, condition, highlights..." value={form.description} onChange={e => set('description', e.target.value)} />
+            </div>
 
-            <label style={s.label}>Amenities</label>
-            <div style={s.chipGrid}>
-              {AMENITIES.map(a => (
-                <button key={a} style={{
-                  ...s.chip,
-                  background: form.amenities.includes(a) ? 'rgba(99,102,241,0.2)' : 'var(--surface2)',
-                  color: form.amenities.includes(a) ? 'var(--accent2)' : 'var(--text2)',
-                  border: form.amenities.includes(a) ? '1px solid var(--accent)' : '1px solid var(--border)',
-                }} onClick={() => toggleAmenity(a)}>{a}</button>
-              ))}
+            <div className="form-group">
+              <label>Amenities</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+                {AMENITIES.map(a => (
+                  <button key={a} onClick={() => toggleAmenity(a)}
+                    style={{ padding: '6px 14px', borderRadius: 20, border: `1.5px solid ${form.amenities.includes(a) ? 'var(--accent)' : 'var(--border)'}`, background: form.amenities.includes(a) ? 'rgba(124,58,237,0.12)' : 'var(--bg2)', color: form.amenities.includes(a) ? '#a78bfa' : 'var(--text)', fontSize: 13, cursor: 'pointer' }}>
+                    {form.amenities.includes(a) ? '✓ ' : ''}{a}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
 
-        {/* STEP 2: Photos */}
+        {/* Step 2: Photos */}
         {step === 2 && (
           <div>
-            <h2 style={s.cardTitle}>Upload Property Photos</h2>
-            <p style={s.cardSub}>Our admin will enhance your photos for maximum appeal. Add as many as you want.</p>
+            <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6 }}>Property Photos</h2>
+            <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 24 }}>Upload up to 10 photos. We'll enhance them for best presentation.</p>
 
-            <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handlePhoto} />
-            <button style={s.uploadBtn} onClick={() => fileRef.current.click()}>
-              📷 Add Photos
-            </button>
+            <div style={{ border: '2px dashed var(--border)', borderRadius: 12, padding: '32px', textAlign: 'center', marginBottom: 20, cursor: 'pointer', transition: 'border-color 0.2s' }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+              onClick={() => document.getElementById('photoInput').click()}>
+              <div style={{ fontSize: 40, marginBottom: 10 }}>📸</div>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>Click to upload photos</div>
+              <div style={{ color: 'var(--muted)', fontSize: 13 }}>JPG, PNG up to 10MB each · Max 10 photos</div>
+              <input id="photoInput" type="file" accept="image/*" multiple onChange={handlePhotoChange} style={{ display: 'none' }} />
+            </div>
 
-            {photos.length > 0 && (
-              <div style={s.photoGrid}>
-                {photos.map((p, i) => (
-                  <div key={i} style={s.photoWrap}>
-                    <img src={p.url} alt="" style={s.photoThumb} />
-                    {i === 0 && <span style={s.mainBadge}>Cover</span>}
-                    <button style={s.photoRemove} onClick={() => removePhoto(i)}>✕</button>
+            {form.photos.length > 0 && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 20 }}>
+                {form.photos.map((p, i) => (
+                  <div key={i} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', aspectRatio: '4/3' }}>
+                    <img src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <button onClick={() => removePhoto(i)}
+                      style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.7)', border: 'none', color: 'white', width: 24, height: 24, borderRadius: '50%', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      ×
+                    </button>
                   </div>
                 ))}
               </div>
             )}
 
-            {photos.length === 0 && (
-              <div style={s.photoEmpty} onClick={() => fileRef.current.click()}>
-                <div style={{ fontSize: 40 }}>📸</div>
-                <p style={{ color: 'var(--text2)', marginTop: 8 }}>Tap to upload photos</p>
-                <p style={{ color: 'var(--text3)', fontSize: 12, marginTop: 4 }}>JPG, PNG · Multiple allowed</p>
-              </div>
-            )}
+            <div className="form-group">
+              <label>Notes for our team (optional)</label>
+              <textarea rows={2} placeholder="e.g. Main gate photo pending, will send tomorrow" value={form.photoNote} onChange={e => set('photoNote', e.target.value)} />
+            </div>
 
-            <div style={s.photoNote}>
-              ✨ <strong style={{ color: 'var(--text)' }}>Admin Enhancement:</strong> Our team will professionally edit your photos before publishing — brightening, cropping, and improving clarity so your listing stands out.
+            <div style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: 10, padding: 16 }}>
+              <div style={{ fontSize: 13, color: '#a78bfa', fontWeight: 600, marginBottom: 4 }}>✨ Photo Enhancement</div>
+              <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
+                Our team reviews every uploaded photo and optimizes brightness, contrast, and framing before publishing your listing. Better photos = faster sale.
+              </div>
             </div>
           </div>
         )}
 
-        {/* STEP 3: Contact */}
+        {/* Step 3: Contact */}
         {step === 3 && (
           <div>
-            <h2 style={s.cardTitle}>Your Contact Details</h2>
-            <p style={s.cardSub}>Buyers will never see this — they contact us and we forward serious inquiries to you.</p>
+            <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6 }}>Owner Contact Details</h2>
+            <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 24 }}>Only shared with our mediators — never published publicly</p>
 
-            <label style={s.label}>Full Name *</label>
-            <input style={s.input} type="text" placeholder="Your name"
-              value={form.name} onChange={e => set('name', e.target.value)} />
-            {errors.name && <p style={s.err}>{errors.name}</p>}
-
-            <label style={s.label}>Mobile Number *</label>
-            <div style={{ position: 'relative' }}>
-              <span style={s.prefix}>+91</span>
-              <input style={{ ...s.input, paddingLeft: 52 }} type="tel"
-                placeholder="10-digit mobile" maxLength={10}
-                value={form.phone} onChange={e => set('phone', e.target.value.replace(/\D/g, ''))} />
+            <div className="form-group">
+              <label>Owner Name *</label>
+              <input type="text" placeholder="Your full name" value={form.ownerName} onChange={e => set('ownerName', e.target.value)} />
             </div>
-            {errors.phone && <p style={s.err}>{errors.phone}</p>}
-
-            <label style={s.label}>WhatsApp Number <span style={{ color: 'var(--text3)', fontSize: 12 }}>(if different)</span></label>
-            <div style={{ position: 'relative' }}>
-              <span style={s.prefix}>+91</span>
-              <input style={{ ...s.input, paddingLeft: 52 }} type="tel"
-                placeholder="WhatsApp number" maxLength={10}
-                value={form.whatsapp} onChange={e => set('whatsapp', e.target.value.replace(/\D/g, ''))} />
+            <div className="form-group">
+              <label>Phone Number *</label>
+              <input type="tel" placeholder="10-digit mobile" value={form.phone} onChange={e => set('phone', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>WhatsApp Number</label>
+              <input type="tel" placeholder="If different from phone" value={form.whatsapp} onChange={e => set('whatsapp', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>Email Address</label>
+              <input type="email" placeholder="your@email.com" value={form.email} onChange={e => set('email', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>Best time to reach you</label>
+              <select value={form.availability} onChange={e => set('availability', e.target.value)}>
+                <option value="anytime">Anytime</option>
+                <option value="morning">Morning (9am – 12pm)</option>
+                <option value="afternoon">Afternoon (12pm – 4pm)</option>
+                <option value="evening">Evening (4pm – 8pm)</option>
+                <option value="weekend">Weekends only</option>
+              </select>
             </div>
 
-            <label style={s.label}>Email <span style={{ color: 'var(--text3)', fontSize: 12 }}>(optional)</span></label>
-            <input style={s.input} type="email" placeholder="your@email.com"
-              value={form.email} onChange={e => set('email', e.target.value)} />
-
-            <div style={s.privacyBox}>
-              🔒 <strong style={{ color: 'var(--text)' }}>Your contact is 100% private.</strong> It will never be shown on the public listing. Buyers contact MidiDater and we personally screen and connect you with serious buyers only.
+            <div style={{ background: 'rgba(35,134,54,0.08)', border: '1px solid rgba(35,134,54,0.2)', borderRadius: 10, padding: 16, marginTop: 8 }}>
+              <div style={{ fontSize: 13, color: '#3fb950', fontWeight: 600, marginBottom: 4 }}>🔒 100% Private</div>
+              <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
+                Your phone, email, and exact address are NEVER shown on our public listings. Only our verified mediators can see this information.
+              </div>
             </div>
           </div>
         )}
 
-        {/* Nav */}
-        <div style={s.nav}>
-          {step > 0 && <button style={s.btnBack} onClick={back}>← Back</button>}
+        {/* Navigation */}
+        <div style={{ display: 'flex', gap: 12, marginTop: 32 }}>
+          {step > 0 && (
+            <button className="btn-outline" onClick={() => setStep(s => s - 1)} style={{ flex: 1 }}>← Back</button>
+          )}
           {step < 3 ? (
-            <button style={{ ...s.btnNext, marginLeft: step === 0 ? 'auto' : 0 }} onClick={next}>
+            <button className="btn-primary" onClick={() => setStep(s => s + 1)} disabled={!canNext[step]}
+              style={{ flex: 2, opacity: canNext[step] ? 1 : 0.5, background: 'var(--accent)' }}>
               Continue →
             </button>
           ) : (
-            <button style={{ ...s.btnSubmit, opacity: loading ? 0.7 : 1 }}
-              onClick={handleSubmit} disabled={loading}>
-              {loading ? '⏳ Submitting…' : '🚀 Submit Listing'}
+            <button className="btn-primary" onClick={handleSubmit} disabled={loading || !canNext[3]}
+              style={{ flex: 2, opacity: canNext[3] ? 1 : 0.5, background: 'var(--accent)' }}>
+              {loading ? 'Submitting...' : '🏷️ Submit Listing'}
             </button>
           )}
         </div>
       </div>
-
-      {/* Previous listings preview */}
-      {step === 0 && (
-        <div style={s.prevSection}>
-          <h3 style={s.prevTitle}>Recent Successful Sales by MidiDater</h3>
-          <div style={s.prevGrid}>
-            {PREV_SALES.map(p => (
-              <div key={p.id} style={s.prevCard}>
-                <div style={{ ...s.prevImg, backgroundImage: `url(${p.img})` }}>
-                  <span style={s.soldBadge}>SOLD ✓</span>
-                </div>
-                <div style={s.prevBody}>
-                  <div style={s.prevPrice}>{p.price}</div>
-                  <div style={s.prevArea}>📍 {p.area}, Chennai</div>
-                  <div style={s.prevDays}>⚡ Sold in {p.days} days</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <footer style={s.footer}>© 2024 MidiDater · Chennai, Tamil Nadu</footer>
     </div>
-  )
-}
-
-const PREV_SALES = [
-  { id: 1, img: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400', price: '₹78 Lakh', area: 'Anna Nagar', days: 12 },
-  { id: 2, img: 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?w=400', price: '₹1.4 Cr', area: 'Adyar', days: 8 },
-  { id: 3, img: 'https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=400', price: '₹55 Lakh', area: 'Velachery', days: 18 },
-]
-
-const s = {
-  page: { minHeight: '100vh', background: 'var(--bg)', padding: '0 0 60px', position: 'relative', overflow: 'hidden' },
-  glow: { position: 'fixed', top: -150, right: -150, width: 500, height: 500, background: 'radial-gradient(circle, rgba(16,185,129,0.1) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', position: 'relative', zIndex: 2 },
-  back: { padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 13, cursor: 'pointer' },
-  logo: { display: 'flex', alignItems: 'center', gap: 8 },
-  logoText: { fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, background: 'linear-gradient(135deg, #818cf8, #6366f1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
-  headerTag: { padding: '5px 12px', borderRadius: 20, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', color: 'var(--green)', fontSize: 12, fontWeight: 700 },
-  heroMini: { textAlign: 'center', padding: '24px 20px 12px', position: 'relative', zIndex: 2 },
-  title: { fontFamily: 'var(--font-display)', fontSize: 'clamp(22px,4vw,32px)', fontWeight: 800, color: 'var(--text)' },
-  sub: { color: 'var(--text2)', fontSize: 14, marginTop: 6 },
-  steps: { display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px 20px 20px', maxWidth: 420, margin: '0 auto', position: 'relative', zIndex: 2 },
-  stepItem: { display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', flex: 1 },
-  dot: { width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff', transition: 'all 0.3s', zIndex: 1 },
-  stepLabel: { fontSize: 10, marginTop: 5, fontWeight: 600 },
-  stepLine: { position: 'absolute', top: 16, left: 'calc(50% + 16px)', width: 'calc(100% - 32px)', height: 2, transition: 'background 0.3s' },
-  card: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: '24px 20px', maxWidth: 520, margin: '0 auto', boxShadow: 'var(--shadow-lg)', position: 'relative', zIndex: 2 },
-  cardTitle: { fontFamily: 'var(--font-display)', fontSize: 19, fontWeight: 700, color: 'var(--text)', marginBottom: 4 },
-  cardSub: { color: 'var(--text2)', fontSize: 13, marginBottom: 20 },
-  typeGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 16 },
-  typeCard: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, padding: '14px', borderRadius: 14, cursor: 'pointer', transition: 'all 0.2s', textAlign: 'left', width: '100%' },
-  typeIcon: { fontSize: 22, marginBottom: 4 },
-  typeLabel: { fontWeight: 700, fontSize: 13, color: 'var(--text)' },
-  typeDesc: { fontSize: 11, color: 'var(--text3)' },
-  label: { display: 'block', color: 'var(--text2)', fontSize: 13, fontWeight: 600, marginBottom: 8, marginTop: 18 },
-  chipGrid: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
-  chip: { padding: '7px 13px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' },
-  input: { width: '100%', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', color: 'var(--text)', fontSize: 14, outline: 'none', transition: 'border 0.2s', marginBottom: 4 },
-  prefix: { position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text2)', fontSize: 14, fontWeight: 600, pointerEvents: 'none' },
-  uploadBtn: { width: '100%', padding: '14px', borderRadius: 14, border: '2px dashed var(--border)', background: 'var(--surface2)', color: 'var(--text2)', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 16 },
-  photoGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 },
-  photoWrap: { position: 'relative', borderRadius: 10, overflow: 'hidden', aspectRatio: '1' },
-  photoThumb: { width: '100%', height: '100%', objectFit: 'cover' },
-  mainBadge: { position: 'absolute', top: 6, left: 6, padding: '2px 8px', background: 'var(--accent)', color: '#fff', fontSize: 10, fontWeight: 700, borderRadius: 10 },
-  photoRemove: { position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: 11, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  photoEmpty: { border: '2px dashed var(--border)', borderRadius: 16, padding: '48px 20px', textAlign: 'center', cursor: 'pointer', marginBottom: 16 },
-  photoNote: { background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '12px 14px', fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 },
-  privacyBox: { marginTop: 20, background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 12, padding: '12px 14px', fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 },
-  err: { color: '#f87171', fontSize: 12, marginTop: 4, fontWeight: 500 },
-  nav: { display: 'flex', gap: 12, marginTop: 28, justifyContent: 'space-between' },
-  btnBack: { padding: '12px 20px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 14, fontWeight: 600, cursor: 'pointer' },
-  btnNext: { padding: '12px 28px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 20px rgba(16,185,129,0.35)' },
-  btnSubmit: { flex: 1, padding: '14px 20px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 24px rgba(16,185,129,0.4)', transition: 'opacity 0.2s' },
-  prevSection: { maxWidth: 520, margin: '36px auto 0', padding: '0 20px', position: 'relative', zIndex: 2 },
-  prevTitle: { fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 14 },
-  prevGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 },
-  prevCard: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' },
-  prevImg: { height: 100, backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative' },
-  soldBadge: { position: 'absolute', top: 6, left: 6, padding: '2px 8px', background: 'var(--green)', color: '#fff', fontSize: 9, fontWeight: 800, borderRadius: 10 },
-  prevBody: { padding: '10px' },
-  prevPrice: { fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 800, color: 'var(--text)' },
-  prevArea: { color: 'var(--text2)', fontSize: 11, marginTop: 2 },
-  prevDays: { color: 'var(--gold)', fontSize: 11, marginTop: 2, fontWeight: 600 },
-  footer: { textAlign: 'center', color: 'var(--text3)', fontSize: 12, marginTop: 40, position: 'relative', zIndex: 2 },
+  );
 }
